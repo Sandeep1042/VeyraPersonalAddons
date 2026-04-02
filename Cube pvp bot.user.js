@@ -1,11 +1,14 @@
 // ==UserScript==
 // @name         Veyra Cube PvP Join Bot
 // @namespace    https://demonicscans.org/
-// @version      1.0.1
+// @version      1.0.2
 // @description  Auto joins cube PvP rooms using the node lock timer, with a 2 hour fallback cooldown.
 // @match        https://demonicscans.org/guild_dungeon_cube.php*
 // @match        https://demonicscans.org/pvp_style_node.php*
 // @match        https://demonicscans.org/pvp_style_battle.php*
+// @homepageURL  https://github.com/nobody65321/VeyraPersonalAddons
+// @updateURL    https://raw.githubusercontent.com/nobody65321/VeyraPersonalAddons/main/Cube%20pvp%20bot.user.js
+// @downloadURL  https://raw.githubusercontent.com/nobody65321/VeyraPersonalAddons/main/Cube%20pvp%20bot.user.js
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
