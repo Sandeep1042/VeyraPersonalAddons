@@ -1,17 +1,19 @@
 // ==UserScript==
 // @name         Demonicscans Turbo Stamina Farmer
 // @namespace    demonicscans-fast-bot
-// @version      2.2
-// @description  Turbo stamina farming bot for Demonicscans manga reader
+// @version      2.3
+// @description  Turbo stamina farming bot for Demonicscans manga reader (page-safe)
 // @match        https://demonicscans.org/*
-// @grant        none
 // @updateURL    https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/demonicscans-turbo.user.js
 // @downloadURL  https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/demonicscans-turbo.user.js
+// @grant        none
 // ==/UserScript==
 
 (() => {
+  'use strict';
 
-  if (!location.hostname.includes("demonicscans.org")) return;
+  // ===== Only run on manga pages =====
+  if (!location.pathname.startsWith("/title/")) return;
 
   console.log("⚡ Demonicscans TURBO bot started");
 
@@ -36,10 +38,8 @@
       : null;
   };
 
-  /* ================= FLOATING COUNTER ================= */
-
+  // ===== Floating Counter =====
   let counterBox = null;
-
   function createCounter() {
     if (counterBox) return;
     counterBox = document.createElement("div");
@@ -71,13 +71,12 @@
 `;
   }
 
-  /* ================= DAILY CAP BANNER ================= */
-
+  // ===== Daily Cap Banner =====
   function showCapBanner(){
     if(document.getElementById("daily-cap-banner")) return;
     const banner = document.createElement("div");
     banner.id="daily-cap-banner";
-    Object.assign(banner.style,{
+    Object.assign(banner.style, {
       position:"fixed",
       top:"0",
       left:"0",
@@ -94,10 +93,10 @@
     document.body.appendChild(banner);
   }
 
-  /* ================= MOVE UI TO TOP ================= */
-
+  // ===== Move UI to Top =====
   function moveUIToTop(){
     const header = document.querySelector("header") || document.body.firstElementChild || document.body;
+
     const pills = document.querySelectorAll(".stamina-pill");
     pills.forEach(p=>{
       if(!p.dataset.moved){
@@ -105,11 +104,13 @@
         p.dataset.moved="true";
       }
     });
+
     const userName = document.querySelector(".user-name") || document.querySelector(".username") || document.querySelector('[class*="user"] span');
     if(userName && !userName.dataset.moved){
       header.after(userName);
       userName.dataset.moved="true";
     }
+
     const reactBtn = document.querySelector(".reaction");
     if(reactBtn){
       const container = reactBtn.parentElement;
@@ -120,14 +121,13 @@
     }
   }
 
-  /* ================= LOGOUT CHECK ================= */
-
+  // ===== Logout Check =====
   const isLoggedOut = () => !document.querySelector(".stamina-pill");
 
-  /* ================= MAIN LOOP ================= */
-
+  // ===== Main Loop =====
   const loop = async () => {
     if(stopped) return;
+
     createCounter();
     moveUIToTop();
 
@@ -139,6 +139,7 @@
     const pills=[...document.querySelectorAll(".stamina-pill")];
     const staminaEl = pills.find(p=>p.textContent.includes("Stamina"));
     const farmEl = pills.find(p=>p.textContent.includes("Farmed"));
+
     const stamina = getNums(staminaEl);
     const farm = getNums(farmEl);
 
@@ -149,12 +150,14 @@
       return;
     }
 
+    // Daily limit
     if(farm && farm.cur >= 1000){
       showCapBanner();
       stopBot("Daily farm limit reached");
       return;
     }
 
+    // Stamina cap
     if(lastStamina !== null && stamina.cur <= lastStamina){
       stopBot("Stamina no longer increasing");
       return;
@@ -162,15 +165,14 @@
 
     lastStamina = stamina.cur;
 
+    // React
     const react = document.querySelector(".reaction:not(.active-reaction)");
     if(react) react.click();
 
     await sleep(70);
 
-    const next =
-      document.querySelector('a[rel="next"]') ||
-      [...document.querySelectorAll("a")].find(a => /next/i.test(a.textContent));
-
+    // Next chapter
+    const next = document.querySelector('a[rel="next"]') || [...document.querySelectorAll("a")].find(a=>/next/i.test(a.textContent));
     if(!next){
       stopBot("Next chapter not found");
       return;
