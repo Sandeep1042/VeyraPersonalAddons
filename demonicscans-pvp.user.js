@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Demonicscans PvP Auto Bot
 // @namespace    demonicscans-pvp-bot
-// @version      1.1
+// @version      1.2
 // @description  Auto join solo PvP and leave when battle ends
 // @match        https://demonicscans.org/*
 // @grant        none
