@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         Veyra Shadowbridge Warrens Monster Board
 // @namespace    https://demonicscans.org/
-// @version      1.0.4
+// @version      1.0.5
 // @description  Show every monster from each Shadowbridge Warrens room on the main dungeon map page.
 // @match        *://demonicscans.org/*
 // @match        *://www.demonicscans.org/*
+// @homepageURL  https://github.com/nobody65321/VeyraPersonalAddons
+// @updateURL    https://raw.githubusercontent.com/nobody65321/VeyraPersonalAddons/main/D1%20Quota.user.js
+// @downloadURL  https://raw.githubusercontent.com/nobody65321/VeyraPersonalAddons/main/D1%20Quota.user.js
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
