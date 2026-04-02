@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Demonicscans Turbo Stamina Farmer
 // @namespace    demonicscans-fast-bot
-// @version      2.1
+// @version      2.2
 // @description  Turbo stamina farming bot for Demonicscans manga reader
 // @match        https://demonicscans.org/*
 // @grant        none
