@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         Demonicscans PvP Bot
 // @namespace    demonicscans-pvp-bot
-// @version      2.3
+// @version      2.4
 // @description  Auto joins solo PvP, enables Auto Play, and leaves finished matches.
 // @match        https://demonicscans.org/pvp.php*
 // @match        https://demonicscans.org/pvp_battle.php*
+// @homepageURL  https://github.com/nobody65321/VeyraPersonalAddons
+// @updateURL    https://raw.githubusercontent.com/nobody65321/VeyraPersonalAddons/main/demonicscans-pvp.user.js
+// @downloadURL  https://raw.githubusercontent.com/nobody65321/VeyraPersonalAddons/main/demonicscans-pvp.user.js
 // @grant        none
 // ==/UserScript==
 
