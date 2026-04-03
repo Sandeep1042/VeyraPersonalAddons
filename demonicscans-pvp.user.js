@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Demonicscans PvP Bot
 // @namespace    demonicscans-pvp-bot
-// @version      2.4
+// @version      2.6
 // @description  Auto joins solo PvP, enables Auto Play, and leaves finished matches.
 // @match        https://demonicscans.org/pvp.php*
 // @match        https://demonicscans.org/pvp_battle.php*
@@ -17,8 +17,9 @@
     const STORAGE_KEY = 'pvpBotActive';
     const LAST_ACTION_KEY = 'pvpBotLastActionAt';
     const ACTION_GAP_MS = 1500;
-    const LOBBY_RETRY_MS = 5000;
+    const LOBBY_RETRY_MS = 2000;
     const BATTLE_RETRY_MS = 1000;
+    let loopTimer = null;
 
     const isActive = () => localStorage.getItem(STORAGE_KEY) === 'true';
 
@@ -117,6 +118,22 @@
         return !!element && String(element.textContent || '').toLowerCase().includes(String(value || '').toLowerCase());
     };
 
+    const parseSoloTokens = () => {
+        const pills = Array.from(document.querySelectorAll('.info-pill'));
+        const tokenPill = pills.find((pill) => /tokens/i.test(pill.textContent || ''));
+        if (!tokenPill) {
+            return null;
+        }
+
+        const valueNode = tokenPill.querySelector('span');
+        const raw = valueNode ? valueNode.textContent : tokenPill.textContent;
+        const digits = String(raw || '').replace(/[^\d]/g, '');
+        if (!digits) {
+            return null;
+        }
+        return Number(digits);
+    };
+
     const battleEnded = () => {
         const badge = document.getElementById('matchStatusBadge');
         const note = document.getElementById('noteText');
@@ -139,19 +156,36 @@
         return !!autoBtn && (autoBtn.classList.contains('active') || textIncludes(autoBtn, 'on'));
     };
 
+    const queueNext = (ms) => {
+        clearTimeout(loopTimer);
+        loopTimer = setTimeout(runTick, ms);
+    };
+
     const handleLobby = async () => {
+        const tokens = parseSoloTokens();
+        if (tokens !== null && tokens <= 0) {
+            setActive(false);
+            const toggleBtn = document.getElementById('pvpBotToggle');
+            if (toggleBtn) {
+                toggleBtn.textContent = 'PvP Bot OFF';
+                toggleBtn.style.background = '#963838';
+            }
+            setStatus('Solo PvP tokens are at 0. Bot stopped.');
+            queueNext(1000);
+            return;
+        }
+
         const soloBtn = document.querySelector('.js-matchmake[data-ladder="solo"]');
         if (soloBtn && !soloBtn.disabled) {
             if (clickIfPossible(soloBtn, 'Joining solo PvP match...')) {
+                queueNext(ACTION_GAP_MS);
                 return;
             }
         }
 
         setStatus('Waiting for solo match button...');
         await sleep(LOBBY_RETRY_MS);
-        if (isActive()) {
-            location.reload();
-        }
+        queueNext(250);
     };
 
     const handleBattle = async () => {
@@ -160,14 +194,18 @@
 
         if (battleEnded()) {
             if (clickIfPossible(backBtn, 'Battle finished, leaving to PvP lobby...')) {
+                queueNext(ACTION_GAP_MS);
                 return;
             }
             setStatus('Battle finished, waiting to leave...');
+            await sleep(BATTLE_RETRY_MS);
+            queueNext(250);
             return;
         }
 
         if (autoBtn && !autoBtn.disabled && !autoPlayEnabled()) {
             if (clickIfPossible(autoBtn, 'Enabling Auto Play...')) {
+                queueNext(ACTION_GAP_MS);
                 return;
             }
         }
@@ -181,31 +219,30 @@
         }
 
         await sleep(BATTLE_RETRY_MS);
+        queueNext(250);
     };
 
-    const loop = async () => {
-        while (true) {
-            if (!isActive()) {
-                setStatus('Bot is idle.');
-                await sleep(1000);
-                continue;
-            }
-
-            if (/\/pvp\.php(?:\?|$)/i.test(location.pathname + location.search)) {
-                await handleLobby();
-                continue;
-            }
-
-            if (/\/pvp_battle\.php(?:\?|$)/i.test(location.pathname + location.search)) {
-                await handleBattle();
-                continue;
-            }
-
-            setStatus('Unsupported page for PvP bot.');
-            await sleep(1500);
+    const runTick = async () => {
+        if (!isActive()) {
+            setStatus('Bot is idle.');
+            queueNext(1000);
+            return;
         }
+
+        if (/\/pvp\.php(?:\?|$)/i.test(location.pathname + location.search)) {
+            await handleLobby();
+            return;
+        }
+
+        if (/\/pvp_battle\.php(?:\?|$)/i.test(location.pathname + location.search)) {
+            await handleBattle();
+            return;
+        }
+
+        setStatus('Unsupported page for PvP bot.');
+        queueNext(1500);
     };
 
     renderToggle();
-    loop();
+    queueNext(200);
 })();
