@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         Veyra Shadow Army Tag + Retreat Bot
 // @namespace    https://demonicscans.org/
-// @version      0.1.0
+// @version      0.1.1
 // @description  Refreshes Shadow Army list, enters the top eligible live battle, joins, assigns one target, waits, retreats, then returns to Shadow Army home.
 // @match        https://demonicscans.org/shadow_army.php*
 // @match        https://demonicscans.org/shadow_army_live_battle.php*
+// @homepageURL  https://github.com/nobody65321/VeyraPersonalAddons
+// @updateURL    https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/Shadow%20army.user.js
+// @downloadURL  https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/Shadow%20army.user.js
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
@@ -493,4 +496,3 @@
   window.setInterval(() => void tick(false), TICK_MS);
   void tick(false);
 })();
-
