@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra Shadowbridge Warrens Monster Board
 // @namespace    https://demonicscans.org/
-// @version      1.0.6
+// @version      1.0.7
 // @description  Show every monster from each Shadowbridge Warrens room on the main dungeon map page.
 // @match        *://demonicscans.org/*
 // @match        *://www.demonicscans.org/*
@@ -33,7 +33,18 @@
     { item: 'Arcane Treat S', nameIncludes: 'droknar', locationIncludes: ['shattered stone causeways'], maxTargets: 5, targetDamage: 4000000 },
     { item: 'Arcane Treat S', nameIncludes: 'vorga', locationIncludes: ['brood pits'], maxTargets: 10, targetDamage: 4000000 },
     { item: 'Arcane Treat S', nameIncludes: 'nib', locationIncludes: ['brood pits'], maxTargets: 3, targetDamage: 6000000 },
-    { item: 'Full Stamina Potion', nameIncludes: 'gribble', locationIncludes: ['plunder warrens', 'territory center'], maxTargets: 15, targetDamage: 1000000 }
+    { item: 'Full Stamina Potion', nameIncludes: 'gribble', locationIncludes: ['plunder warrens', 'territory center'], maxTargets: 15, targetDamage: 1000000 },
+
+    // EXP cap targets (no daily max-target limit; aim slightly under cap).
+    { item: 'EXP Cap', nameIncludes: 'urzul', locationIncludes: [''], maxTargets: 9999, targetDamage: 6900000 },
+    { item: 'EXP Cap', nameIncludes: 'makra', locationIncludes: [''], maxTargets: 9999, targetDamage: 4900000 },
+    { item: 'EXP Cap', nameIncludes: 'brog', locationIncludes: [''], maxTargets: 9999, targetDamage: 2900000 },
+    { item: 'EXP Cap', nameIncludes: 'tharka', locationIncludes: [''], maxTargets: 9999, targetDamage: 4900000 },
+    { item: 'EXP Cap', nameIncludes: 'hruk', locationIncludes: [''], maxTargets: 9999, targetDamage: 6900000 },
+    { item: 'EXP Cap', nameIncludes: 'zorgra', locationIncludes: [''], maxTargets: 9999, targetDamage: 9900000 },
+    { item: 'EXP Cap', nameIncludes: 'stone-rend', locationIncludes: [''], maxTargets: 9999, targetDamage: 6900000 },
+    { item: 'EXP Cap', nameIncludes: 'krak', locationIncludes: [''], maxTargets: 9999, targetDamage: 6900000 },
+    { item: 'EXP Cap', nameIncludes: 'skrit', locationIncludes: [''], maxTargets: 9999, targetDamage: 7500000 }
   ];
 
   if (!isMainDungeonPage()) {
