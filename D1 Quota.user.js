@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra Shadowbridge Warrens Monster Board
 // @namespace    https://demonicscans.org/
-// @version      1.0.8
+// @version      1.0.9
 // @description  Show every monster from each Shadowbridge Warrens room on the main dungeon map page.
 // @match        *://demonicscans.org/*
 // @match        *://www.demonicscans.org/*
@@ -1056,7 +1056,9 @@
       const key = monster.limitRule.ruleKey;
       const usage = usageMap.get(key) || { started: 0, capped: 0 };
       const personalDamage = Number(monster.personalDamage || 0);
-      if (quotaStore.has(monster)) {
+      // Consider a monster "started" if it has any personal damage, even if it was
+      // hit outside this script (or before quota-store tracking existed).
+      if (personalDamage > 0 || quotaStore.has(monster)) {
         usage.started += 1;
       }
       if (personalDamage >= Number(monster.limitRule.targetDamage || 0)) {
