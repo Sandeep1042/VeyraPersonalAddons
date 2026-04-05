@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra Shadowbridge Warrens Monster Board
 // @namespace    https://demonicscans.org/
-// @version      1.0.5
+// @version      1.0.6
 // @description  Show every monster from each Shadowbridge Warrens room on the main dungeon map page.
 // @match        *://demonicscans.org/*
 // @match        *://www.demonicscans.org/*
@@ -33,7 +33,7 @@
     { item: 'Arcane Treat S', nameIncludes: 'droknar', locationIncludes: ['shattered stone causeways'], maxTargets: 5, targetDamage: 4000000 },
     { item: 'Arcane Treat S', nameIncludes: 'vorga', locationIncludes: ['brood pits'], maxTargets: 10, targetDamage: 4000000 },
     { item: 'Arcane Treat S', nameIncludes: 'nib', locationIncludes: ['brood pits'], maxTargets: 3, targetDamage: 6000000 },
-    { item: 'Full Stamina Potion', nameIncludes: 'gribble', locationIncludes: ['plunder warrens', 'territory center'], maxTargets: 1, targetDamage: 1000000 }
+    { item: 'Full Stamina Potion', nameIncludes: 'gribble', locationIncludes: ['plunder warrens', 'territory center'], maxTargets: 15, targetDamage: 1000000 }
   ];
 
   if (!isMainDungeonPage()) {
@@ -1602,18 +1602,26 @@
         if (!monster.limitRule) {
           return false;
         }
+        const monsterId = String(monster.id || '');
+        if (!monsterId) {
+          return false;
+        }
         const ruleList = state.rules[monster.limitRule.ruleKey] || [];
-        return ruleList.includes(monster.id);
+        return ruleList.includes(monsterId);
       },
       mark(monster) {
         ensureCurrentCycle();
         if (!monster.limitRule) {
           return;
         }
+        const monsterId = String(monster.id || '');
+        if (!monsterId) {
+          return;
+        }
         const ruleKey = monster.limitRule.ruleKey;
         const ruleList = state.rules[ruleKey] || [];
-        if (!ruleList.includes(monster.id)) {
-          ruleList.push(monster.id);
+        if (!ruleList.includes(monsterId)) {
+          ruleList.push(monsterId);
           state.rules[ruleKey] = ruleList;
           writeQuotaState(state);
         }
