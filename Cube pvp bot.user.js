@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Veyra Cube PvP Join Bot
 // @namespace    https://demonicscans.org/
-// @version      1.0.2
-// @description  Auto joins cube PvP rooms using the node lock timer, with a 2 hour fallback cooldown.
+// @version      1.0.5
+// @description  Joins a cube PvP match every 2 hours, claims a slot, then leaves back to the node list. Rotates nodes when a node has no OPEN matches.
 // @match        https://demonicscans.org/guild_dungeon_cube.php*
 // @match        https://demonicscans.org/pvp_style_node.php*
 // @match        https://demonicscans.org/pvp_style_battle.php*
@@ -18,10 +18,15 @@
 
   const ACTIVE_KEY = 'tm_cube_pvp_bot_active';
   const LAST_JOIN_KEY = 'tm_cube_pvp_last_join_at';
+  const PENDING_JOIN_KEY = 'tm_cube_pvp_pending_join_v1';
+  const NODE_URLS_KEY = 'tm_cube_pvp_node_urls_v1';
+  const NODE_INDEX_KEY = 'tm_cube_pvp_node_index_v1';
+  const NODE_TITLE_MAP_KEY = 'tm_cube_pvp_node_title_map_v1';
   const JOIN_COOLDOWN_MS = 2 * 60 * 60 * 1000;
   const LOOP_MS = 1500;
   const ACTION_GAP_MS = 1500;
   const PREFERRED_SLOTS = ['5', '4', '3', '2', '1'];
+  const SECONDARY_NODE_NAME = 'duel heart';
 
   let timerId = 0;
 
@@ -74,6 +79,129 @@
     const minutes = Number(match[2]);
     const seconds = Number(match[3]);
     return (((hours * 60) + minutes) * 60 + seconds) * 1000;
+  }
+
+  function getInstanceIdFromUrl() {
+    return new URLSearchParams(window.location.search).get('instance_id') || '';
+  }
+
+  function getPendingJoin() {
+    try {
+      const raw = window.localStorage.getItem(PENDING_JOIN_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (!parsed || typeof parsed !== 'object') {
+        return null;
+      }
+      if (!Number.isFinite(Number(parsed.at))) {
+        return null;
+      }
+      return { at: Number(parsed.at), url: String(parsed.url || '') };
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  function setPendingJoin(at, url) {
+    try {
+      window.localStorage.setItem(PENDING_JOIN_KEY, JSON.stringify({ at: Number(at || 0), url: String(url || '') }));
+    } catch (_e) {
+      // ignore
+    }
+  }
+
+  function clearPendingJoin() {
+    try {
+      window.localStorage.removeItem(PENDING_JOIN_KEY);
+    } catch (_e) {
+      // ignore
+    }
+  }
+
+  function getCachedNodeUrls() {
+    try {
+      const raw = window.localStorage.getItem(NODE_URLS_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed) && parsed.every((v) => typeof v === 'string')) {
+        return parsed;
+      }
+    } catch (_e) {
+      // ignore
+    }
+    return [];
+  }
+
+  function setCachedNodeUrls(urls) {
+    try {
+      window.localStorage.setItem(NODE_URLS_KEY, JSON.stringify(urls || []));
+    } catch (_e) {
+      // ignore
+    }
+  }
+
+  function getNodeIndex() {
+    return Math.max(0, Number(window.localStorage.getItem(NODE_INDEX_KEY) || 0));
+  }
+
+  function setNodeIndex(value) {
+    window.localStorage.setItem(NODE_INDEX_KEY, String(Math.max(0, Number(value || 0))));
+  }
+
+  function advanceNodeIndex(urls) {
+    if (!urls || !urls.length) {
+      return 0;
+    }
+    const next = (getNodeIndex() + 1) % urls.length;
+    setNodeIndex(next);
+    return next;
+  }
+
+  function getNodeTitleMap() {
+    try {
+      const raw = window.localStorage.getItem(NODE_TITLE_MAP_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+    } catch (_e) {
+      // ignore
+    }
+    return {};
+  }
+
+  function setNodeTitleMap(next) {
+    try {
+      window.localStorage.setItem(NODE_TITLE_MAP_KEY, JSON.stringify(next || {}));
+    } catch (_e) {
+      // ignore
+    }
+  }
+
+  function rememberCurrentNodeTitle() {
+    if (!isCubeNodePage()) {
+      return;
+    }
+    const title = String(document.title || '').trim();
+    if (!title) {
+      return;
+    }
+    const map = getNodeTitleMap();
+    map[String(window.location.href)] = title;
+    setNodeTitleMap(map);
+  }
+
+  function findNodeUrlByName(nameLower) {
+    const target = String(nameLower || '').toLowerCase();
+    if (!target) {
+      return '';
+    }
+    const map = getNodeTitleMap();
+    const entries = Object.entries(map);
+    for (const [url, title] of entries) {
+      if (String(title || '').toLowerCase().includes(target)) {
+        return String(url || '');
+      }
+    }
+    return '';
   }
 
   function setStatus(text) {
@@ -177,23 +305,36 @@
     return /\/pvp_style_battle\.php$/i.test(window.location.pathname) && new URLSearchParams(window.location.search).get('source') === 'cube';
   }
 
+  function isCubeMainPage() {
+    return /\/guild_dungeon_cube\.php$/i.test(window.location.pathname);
+  }
+
+  function getCubeMainUrl() {
+    const instanceId = getInstanceIdFromUrl();
+    if (instanceId) {
+      return `guild_dungeon_cube.php?instance_id=${encodeURIComponent(instanceId)}`;
+    }
+    return 'guild_dungeon_cube.php';
+  }
+
+  function collectNodeUrlsFromPage() {
+    const links = Array.from(document.querySelectorAll('a[href*="pvp_style_node.php"][href*="source=cube"]'));
+    const urls = links.map((a) => a.href).filter(Boolean);
+    const uniq = Array.from(new Set(urls));
+    // Prefer stable ordering by node_id if present.
+    uniq.sort((a, b) => {
+      const pa = new URL(a, window.location.href);
+      const pb = new URL(b, window.location.href);
+      const na = Number(pa.searchParams.get('node_id') || 0);
+      const nb = Number(pb.searchParams.get('node_id') || 0);
+      return na - nb;
+    });
+    return uniq;
+  }
+
   function getNodeBackUrl() {
     const back = document.querySelector('a.back-btn[href*="pvp_style_node.php"]');
     return back ? back.href : '';
-  }
-
-  function getJoinedMatchLink() {
-    const cards = Array.from(document.querySelectorAll('.match'));
-    for (const card of cards) {
-      if (!/your slot/i.test(card.textContent || '')) {
-        continue;
-      }
-      const link = card.querySelector('a.btn[href*="pvp_style_battle.php"]');
-      if (link) {
-        return link.href;
-      }
-    }
-    return '';
   }
 
   function parseSlotCount(card) {
@@ -238,6 +379,10 @@
   }
 
   function roomIsLive() {
+    const badge = document.getElementById('matchStatusBadge');
+    if (badge && /live/i.test(badge.textContent || '')) {
+      return true;
+    }
     const note = document.getElementById('noteText');
     return /live|enemy turn|your turn/i.test((note && note.textContent) || '');
   }
@@ -254,12 +399,49 @@
     return sorted[0] || null;
   }
 
-  async function handleNodePage() {
-    const joinedLink = getJoinedMatchLink();
-    if (joinedLink) {
-      goTo(joinedLink, 'Re-entering your joined cube match...');
+  function handleMainPage() {
+    const urls = collectNodeUrlsFromPage();
+    if (urls.length) {
+      setCachedNodeUrls(urls);
+    }
+
+    const cached = urls.length ? urls : getCachedNodeUrls();
+    if (!cached.length) {
+      setStatus('Open a cube PvP node list so I can learn the node URLs.');
+      scheduleNext(LOOP_MS);
       return;
     }
+
+    const idx = Math.min(getNodeIndex(), cached.length - 1);
+    goTo(cached[idx], `Opening cube PvP node ${idx + 1}/${cached.length}...`);
+  }
+
+  function rotateToNextNode(reasonText) {
+    const urls = getCachedNodeUrls();
+    if (!urls.length) {
+      const mainUrl = getCubeMainUrl();
+      goTo(mainUrl, 'No cached cube PvP nodes. Returning to cube page...');
+      return true;
+    }
+
+    // Prefer switching to the "Duel Heart" node (same cube) when present.
+    // This matches the user's desired "second area" rotation behavior.
+    const duelHeartUrl = findNodeUrlByName(SECONDARY_NODE_NAME);
+    const currentTitle = String(document.title || '').toLowerCase();
+    const onDuelHeart = currentTitle.includes(SECONDARY_NODE_NAME);
+    if (!onDuelHeart && duelHeartUrl) {
+      goTo(duelHeartUrl, reasonText || 'No OPEN matches here. Switching to Duel Heart...');
+      return true;
+    }
+
+    const idx = advanceNodeIndex(urls);
+    const nextUrl = urls[idx];
+    goTo(nextUrl, reasonText || `Rotating to next cube PvP node (${idx + 1}/${urls.length})...`);
+    return true;
+  }
+
+  async function handleNodePage() {
+    rememberCurrentNodeTitle();
 
     const lockWarningMs = parseLockWarningMs();
     if (lockWarningMs !== null && lockWarningMs > 0) {
@@ -281,24 +463,47 @@
       return;
     }
 
-    setStatus('No open cube PvP room found yet.');
-    scheduleNext(LOOP_MS);
+    rotateToNextNode('No OPEN matches in this node. Rotating to the next node...');
   }
 
   async function handleBattlePage() {
     if (roomIsOver()) {
+      const leaveBtn = document.getElementById('leaveRoomBtn');
+      if (leaveBtn && !leaveBtn.disabled) {
+        if (clickAndPause(leaveBtn, 'Room resolved. Leaving match...')) {
+          return;
+        }
+      }
       const backUrl = getNodeBackUrl();
       if (backUrl) {
-        goTo(backUrl, 'Room resolved, heading back to cube PvP list...');
+        goTo(backUrl, 'Room resolved. Heading back to cube PvP list...');
         return;
       }
     }
 
     if (hasJoinedRoom()) {
-      if (timeUntilNextJoin() <= 0) {
+      const pending = getPendingJoin();
+      if (pending && pending.at && pending.url) {
+        setLastJoinAt(pending.at);
+        clearPendingJoin();
+      } else if (!getLastJoinAt()) {
         setLastJoinAt(Date.now());
       }
-      setStatus(roomIsLive() ? 'Joined cube room and waiting for battle flow.' : 'Joined cube room and holding your slot.');
+
+      const leaveBtn = document.getElementById('leaveRoomBtn');
+      if (leaveBtn && !leaveBtn.disabled) {
+        if (clickAndPause(leaveBtn, 'Slot claimed. Leaving back to node list...')) {
+          return;
+        }
+      }
+
+      const backUrl = getNodeBackUrl();
+      if (backUrl) {
+        goTo(backUrl, 'Slot claimed. Returning to node list...');
+        return;
+      }
+
+      setStatus('Slot claimed. Waiting for navigation...');
       scheduleNext(LOOP_MS);
       return;
     }
@@ -318,14 +523,15 @@
     const claimableSlot = getClaimableSlot();
     if (claimableSlot) {
       if (clickAndPause(claimableSlot, `Claiming cube slot ${claimableSlot.dataset.slot || '?' }...`)) {
+        setPendingJoin(Date.now(), window.location.href);
         return;
       }
     }
 
     const joinBtn = document.getElementById('joinRoomBtn');
     if (joinBtn && !joinBtn.disabled) {
-      setLastJoinAt(Date.now());
       if (clickAndPause(joinBtn, 'Joining cube PvP room...')) {
+        setPendingJoin(Date.now(), window.location.href);
         return;
       }
     }
@@ -351,6 +557,11 @@
 
       if (isCubeBattlePage()) {
         await handleBattlePage();
+        return;
+      }
+
+      if (isCubeMainPage()) {
+        handleMainPage();
         return;
       }
 
