@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra Shadowbridge Warrens Monster Board
 // @namespace    https://demonicscans.org/
-// @version      1.0.9
+// @version      1.0.11
 // @description  Show every monster from each Shadowbridge Warrens room on the main dungeon map page.
 // @match        *://demonicscans.org/*
 // @match        *://www.demonicscans.org/*
@@ -199,7 +199,8 @@
             <button class="btn tm-sbw-stam-preset" type="button" data-role="stam-preset" data-stam="200">200</button>
             <button class="btn" type="button" data-role="damage-test">DMG Test</button>
             <button class="btn" type="button" data-role="one-hit-quota">Fill Quota</button>
-            <button class="btn" type="button" data-role="fill-all-quotas">Fill All Quotas</button>
+            <button class="btn" type="button" data-role="fill-all-treat-quotas">Fill Treat Quotas</button>
+            <button class="btn" type="button" data-role="fill-all-xp-caps">Fill EXP Caps</button>
             <button class="btn" type="button" data-role="attack-selected">Quick Join & Attack</button>
             <button class="btn" type="button" data-role="open-selected">Open selected</button>
           </div>
@@ -332,7 +333,8 @@
       attackSelected: board.querySelector('[data-role="attack-selected"]'),
       damageTest: board.querySelector('[data-role="damage-test"]'),
       oneHitQuota: board.querySelector('[data-role="one-hit-quota"]'),
-      fillAllQuotas: board.querySelector('[data-role="fill-all-quotas"]'),
+      fillAllTreatQuotas: board.querySelector('[data-role="fill-all-treat-quotas"]'),
+      fillAllXpCaps: board.querySelector('[data-role="fill-all-xp-caps"]'),
       stamInput: board.querySelector('[data-role="stam-input"]'),
       damageModelLine: board.querySelector('[data-role="damage-model-line"]'),
       runLine: board.querySelector('[data-role="run-line"]'),
@@ -351,7 +353,8 @@
       controls.openSelected.disabled = selected.size === 0;
       controls.attackSelected.disabled = selected.size === 0;
       controls.oneHitQuota.disabled = !damageModel.hasEstimate();
-      controls.fillAllQuotas.disabled = !damageModel.hasEstimate();
+      controls.fillAllTreatQuotas.disabled = !damageModel.hasEstimate();
+      controls.fillAllXpCaps.disabled = !damageModel.hasEstimate();
       controls.damageModelLine.textContent = `Non-crit estimate: ${damageModel.describe()}`;
       if (!controls.runLine.dataset.busy) {
         controls.runLine.textContent = '';
@@ -495,18 +498,72 @@
         return false;
       }
 
+      const isMonsterStarted = (monster) => Number(monster.personalDamage || 0) > 0 || quotaStore.has(monster);
+      const isMonsterFilled = (monster) =>
+        monster.limitRule && Number(monster.personalDamage || 0) >= Number(monster.limitRule.targetDamage || 0);
+
+      const buildFillPlan = () => {
+        const usageMap = getRuleUsageMap();
+        const byRule = new Map();
+
+        candidates.forEach((monster) => {
+          if (!monster.limitRule) {
+            return;
+          }
+          const key = monster.limitRule.ruleKey;
+          const list = byRule.get(key) || [];
+          list.push(monster);
+          byRule.set(key, list);
+        });
+
+        const planned = [];
+        byRule.forEach((monsters, ruleKey) => {
+          const usage = usageMap.get(ruleKey) || { started: 0 };
+          const maxTargets = Number(monsters[0]?.limitRule?.maxTargets || 0);
+
+          const started = monsters.filter((m) => isMonsterStarted(m));
+          const startedUnfilled = started
+            .filter((m) => !isMonsterFilled(m))
+            .sort((a, b) => {
+              const ar = Number(a.limitRule.targetDamage || 0) - Number(a.personalDamage || 0);
+              const br = Number(b.limitRule.targetDamage || 0) - Number(b.personalDamage || 0);
+              return br - ar;
+            });
+
+          const untouched = monsters.filter((m) => !isMonsterStarted(m));
+
+          // If we've already started enough monsters for this rule, never start new ones.
+          if (usage.started >= maxTargets) {
+            planned.push(...startedUnfilled);
+            return;
+          }
+
+          // Otherwise, allow starting only up to the remaining slots.
+          const remainingStarts = Math.max(0, maxTargets - usage.started);
+          planned.push(...startedUnfilled);
+          planned.push(...untouched.slice(0, remainingStarts));
+        });
+
+        return planned;
+      };
+
+      // Pre-plan once so we don't start extra monsters due to stale/null damage values.
+      const plannedCandidates = buildFillPlan();
+
       const results = [];
       let success = 0;
       let failed = 0;
       controls.oneHitQuota.disabled = true;
-      controls.fillAllQuotas.disabled = true;
+      controls.fillAllTreatQuotas.disabled = true;
+      controls.fillAllXpCaps.disabled = true;
       controls.oneHitQuota.textContent = 'Running...';
-      controls.fillAllQuotas.textContent = 'Running...';
+      controls.fillAllTreatQuotas.textContent = 'Running...';
+      controls.fillAllXpCaps.textContent = 'Running...';
       controls.runLine.dataset.busy = '1';
-      controls.runLine.textContent = `Starting quota fill for ${candidates.length} monster(s)...`;
+      controls.runLine.textContent = `Starting quota fill for ${plannedCandidates.length} monster(s)...`;
 
-      for (let index = 0; index < candidates.length; index += 1) {
-        const monster = candidates[index];
+      for (let index = 0; index < plannedCandidates.length; index += 1) {
+        const monster = plannedCandidates[index];
         const liveUsageMap = getRuleUsageMap();
         if (monster.limitRule && hasReachedLimit(monster, liveUsageMap)) {
           results.push({
@@ -514,7 +571,7 @@
             ok: false,
             html: `Skipped: quota/cap reached<br>${escapeHtml(buildLimitSummary(monster, liveUsageMap, allMonsters))}`
           });
-          controls.runLine.textContent = `Skipping ${monster.name} in ${monster.locationName} (${index + 1}/${candidates.length}) because quota/cap is already reached.`;
+          controls.runLine.textContent = `Skipping ${monster.name} in ${monster.locationName} (${index + 1}/${plannedCandidates.length}) because quota/cap is already reached.`;
           continue;
         }
 
@@ -539,7 +596,7 @@
             const pick = pickBestQuotaStamina(currentRemaining, estimate, currentHp);
             const chosenStamina = pick.stamina;
             const chosenEstimate = pick.estimatedDamage;
-            controls.runLine.textContent = `Attacking ${monster.name} in ${monster.locationName} (${index + 1}/${candidates.length}) with ${chosenStamina} stam. Hit ${hitCount + 1}, current ${formatDamage(monster.personalDamage)}, left ${formatDamage(currentRemaining)}.`;
+            controls.runLine.textContent = `Attacking ${monster.name} in ${monster.locationName} (${index + 1}/${plannedCandidates.length}) with ${chosenStamina} stam. Hit ${hitCount + 1}, current ${formatDamage(monster.personalDamage)}, left ${formatDamage(currentRemaining)}.`;
 
             const result = await quickJoinAndAttack(monster, chosenStamina);
             if (!result.ok) {
@@ -601,9 +658,11 @@
         results
       });
       controls.oneHitQuota.disabled = !damageModel.hasEstimate();
-      controls.fillAllQuotas.disabled = !damageModel.hasEstimate();
+      controls.fillAllTreatQuotas.disabled = !damageModel.hasEstimate();
+      controls.fillAllXpCaps.disabled = !damageModel.hasEstimate();
       controls.oneHitQuota.textContent = 'Fill Quota';
-      controls.fillAllQuotas.textContent = 'Fill All Quotas';
+      controls.fillAllTreatQuotas.textContent = 'Fill Treat Quotas';
+      controls.fillAllXpCaps.textContent = 'Fill EXP Caps';
       controls.runLine.dataset.busy = '';
       controls.runLine.textContent = `Quota fill finished. Success: ${success}, Failed/Skipped: ${results.length - success}.`;
       render();
@@ -625,19 +684,31 @@
       await runFillQuota(candidates);
     });
 
-    controls.fillAllQuotas.addEventListener('click', async () => {
-      const candidates = allMonsters.filter((monster) =>
-        monster.limitRule &&
-        monster.actionUrl &&
-        monster.dgmid &&
-        monster.instanceId &&
-        !monster.dead
-      );
-      // Important: if personalDamage is still null, limit checks read as 0 and we over-hit.
+    const runFillAllByKind = async (kind) => {
+      const isXp = kind === 'xp';
+      const candidates = allMonsters.filter((monster) => {
+        if (!monster.limitRule) return false;
+        if (isXp !== (monster.limitRule.item === 'EXP Cap')) return false;
+        return (
+          monster.actionUrl &&
+          monster.dgmid &&
+          monster.instanceId &&
+          !monster.dead
+        );
+      });
+
       controls.runLine.dataset.busy = '1';
       controls.runLine.textContent = 'Loading your damage numbers...';
       await hydratePersonalDamage(candidates, render);
       await runFillQuota(candidates);
+    };
+
+    controls.fillAllTreatQuotas.addEventListener('click', async () => {
+      await runFillAllByKind('treat');
+    });
+
+    controls.fillAllXpCaps.addEventListener('click', async () => {
+      await runFillAllByKind('xp');
     });
 
     controls.attackSelected.addEventListener('click', async () => {
