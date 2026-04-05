@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra Shadowbridge Warrens Monster Board
 // @namespace    https://demonicscans.org/
-// @version      1.0.7
+// @version      1.0.8
 // @description  Show every monster from each Shadowbridge Warrens room on the main dungeon map page.
 // @match        *://demonicscans.org/*
 // @match        *://www.demonicscans.org/*
@@ -618,6 +618,10 @@
         monster.instanceId &&
         !monster.dead
       );
+      // Ensure limits are accurate before we start firing attacks.
+      controls.runLine.dataset.busy = '1';
+      controls.runLine.textContent = 'Loading your damage numbers...';
+      await hydratePersonalDamage(candidates, render);
       await runFillQuota(candidates);
     });
 
@@ -629,6 +633,10 @@
         monster.instanceId &&
         !monster.dead
       );
+      // Important: if personalDamage is still null, limit checks read as 0 and we over-hit.
+      controls.runLine.dataset.busy = '1';
+      controls.runLine.textContent = 'Loading your damage numbers...';
+      await hydratePersonalDamage(candidates, render);
       await runFillQuota(candidates);
     });
 
