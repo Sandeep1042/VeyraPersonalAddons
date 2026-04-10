@@ -1,8 +1,7 @@
-
 // ==UserScript==
 // @name         Veyra Graveyard Multi-Loot
 // @namespace    https://demonicscans.org/
-// @version      0.2.1
+// @version      0.3.2
 // @description  Adds checkbox multi-select + "Loot selected" to graveyard (dead mobs) on wave pages, plus a loot summary modal.
 // @match        https://demonicscans.org/active_wave.php*
 // @homepageURL  https://github.com/nobody65321/VeyraPersonalAddons
@@ -16,12 +15,21 @@
   'use strict';
 
   const LOOT_URL = 'loot.php';
-  const SELECTOR_CARD = '.monster-card[data-dead="1"][data-monster-id]';
-  const SELECTOR_ELIGIBLE_CARD = '.monster-card[data-dead="1"][data-eligible="1"][data-monster-id]';
-  const SELECTOR_ANY_DEAD_CARD = '.monster-card[data-dead="1"][data-monster-id]';
+  const SELECTOR_CARD = '.monster-card[data-dead="1"]';
+  const SELECTOR_ELIGIBLE_CARD = '.monster-card[data-dead="1"][data-eligible="1"]';
+  const SELECTOR_ANY_DEAD_CARD = '.monster-card[data-dead="1"]';
   const FILTER_KEY = 'tm_graveyard_filter_mob_type_v1';
+  const ALL_TYPES_CACHE_PREFIX = 'tm_graveyard_all_dead_index_v1:';
+  const ALL_TYPES_TTL_MS = 5 * 60 * 1000;
+  const UI_ICON_SIZE_KEY = 'tm_graveyard_icon_size_v1';
+  const UI_CARD_SIZE_KEY = 'tm_graveyard_card_size_v1';
+  const UI_AUTO_LOAD_ALL_DEAD_KEY = 'tm_graveyard_auto_load_all_dead_v1';
   const STYLE_ID = 'tmGraveyardMultiLootStyles';
   const MODAL_ID = 'tmGraveyardLootModal';
+
+  let allDeadTypesFetch = null;
+  let lastAllDeadTypesBaseUrl = '';
+  let mergeDeadPagesFetch = null;
 
   function normName(s) {
     return String(s || '').trim().replace(/\s+/g, ' ');
@@ -47,6 +55,257 @@
     return normName(rowName).toLowerCase();
   }
 
+  function getBaseWaveUrl() {
+    const u = new URL(window.location.href);
+    u.searchParams.delete('dead_page');
+    u.hash = '';
+    return u.toString();
+  }
+
+  function getWaveKey() {
+    // Stable per wave (gate/event+wave) so we can store per-wave state.
+    try {
+      return getBaseWaveUrl();
+    } catch {
+      return String(window.location.href || '');
+    }
+  }
+
+  function getAllTypesCacheKey(baseUrl) {
+    return `${ALL_TYPES_CACHE_PREFIX}${String(baseUrl || '')}`;
+  }
+
+  function clearAllDeadTypesCacheForCurrentWave() {
+    try {
+      const baseUrl = getBaseWaveUrl();
+      window.sessionStorage.removeItem(getAllTypesCacheKey(baseUrl));
+    } catch {
+      // ignore
+    }
+  }
+
+  function tryLoadAllDeadIndex(baseUrl) {
+    try {
+      const raw = window.sessionStorage.getItem(getAllTypesCacheKey(baseUrl));
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      const fetchedAt = Number(data?.fetchedAt || 0) || 0;
+      const types = Array.isArray(data?.types) ? data.types.map((t) => normName(t).toLowerCase()).filter(Boolean) : [];
+      if (!types.length) return null;
+      if (fetchedAt && Date.now() - fetchedAt > ALL_TYPES_TTL_MS) return null;
+
+      const firstPageByType = new Map();
+      const fp = data?.firstPageByType && typeof data.firstPageByType === 'object' ? data.firstPageByType : null;
+      if (fp) {
+        for (const [k, v] of Object.entries(fp)) {
+          const kk = normName(k).toLowerCase();
+          const vv = parseInt(String(v || '0'), 10);
+          if (kk && Number.isFinite(vv) && vv > 0) firstPageByType.set(kk, vv);
+        }
+      }
+
+      return { types: new Set(types), firstPageByType };
+    } catch {
+      return null;
+    }
+  }
+
+  function trySaveAllDeadIndex(baseUrl, typesSet, firstPageByType) {
+    try {
+      const types = Array.from(typesSet || []).map((t) => normName(t).toLowerCase()).filter(Boolean);
+      if (!types.length) return;
+      const fpObj = {};
+      const fpMap = firstPageByType instanceof Map ? firstPageByType : new Map();
+      for (const [k, v] of fpMap.entries()) {
+        const kk = normName(k).toLowerCase();
+        const vv = parseInt(String(v || '0'), 10);
+        if (kk && Number.isFinite(vv) && vv > 0) fpObj[kk] = vv;
+      }
+
+      window.sessionStorage.setItem(
+        getAllTypesCacheKey(baseUrl),
+        JSON.stringify({ fetchedAt: Date.now(), types, firstPageByType: fpObj })
+      );
+    } catch {
+      // ignore
+    }
+  }
+
+  function getUnclaimedKillsCount(doc) {
+    const pills = Array.from((doc || document).querySelectorAll('.unclaimed-pill'));
+    for (const pill of pills) {
+      const txt = normName(pill.textContent || '').toLowerCase();
+      if (!txt.includes('unclaimed') || !txt.includes('kills')) continue;
+      const countEl = pill.querySelector('.count');
+      const n = parseInt(String(countEl ? countEl.textContent : '').replace(/[^\d]/g, ''), 10);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return 0;
+  }
+
+  function getDeadLootMaxPagesFromLinks(doc) {
+    try {
+      const links = Array.from((doc || document).querySelectorAll('a[href*="dead_page="]'));
+      let max = 0;
+      for (const a of links) {
+        const href = a?.getAttribute?.('href') || '';
+        if (!href) continue;
+        const u = new URL(href, window.location.origin);
+        const p = parseInt(u.searchParams.get('dead_page') || '0', 10);
+        if (Number.isFinite(p) && p > max) max = p;
+      }
+      return max > 0 ? max : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function getDeadLootMaxPagesFromText(doc) {
+    try {
+      const bodyTxt = normName(((doc || document).body ? (doc || document).body.textContent : '') || '');
+      const m = bodyTxt.match(/dead\s*loot\s*page\s*(\d+)\s*\/\s*(\d+)/i);
+      const max = m ? parseInt(m[2] || '0', 10) : 0;
+      return Number.isFinite(max) && max > 0 ? max : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function getDeadLootMaxPages(doc) {
+    const fromText = getDeadLootMaxPagesFromText(doc);
+    if (fromText > 0) return fromText;
+
+    const fromLinks = getDeadLootMaxPagesFromLinks(doc);
+    if (fromLinks > 0) return fromLinks;
+
+    // Fallback: estimate from "unclaimed kills" / per-page count.
+    const totalDead = getUnclaimedKillsCount(doc);
+    const perPage = Math.max(0, (doc || document).querySelectorAll(SELECTOR_ANY_DEAD_CARD).length);
+    if (totalDead > 0 && perPage > 0 && totalDead > perPage) return Math.ceil(totalDead / perPage);
+    return 0;
+  }
+
+  async function runWithConcurrency(items, concurrency, worker) {
+    const list = Array.from(items || []);
+    if (!list.length) return [];
+
+    const limit = Math.max(1, Math.min(6, Number(concurrency || 1) || 1));
+    const results = new Array(list.length);
+    let idx = 0;
+
+    async function loop() {
+      while (true) {
+        const my = idx++;
+        if (my >= list.length) return;
+        results[my] = await worker(list[my], my);
+      }
+    }
+
+    const runners = Array.from({ length: Math.min(limit, list.length) }, () => loop());
+    await Promise.all(runners);
+    return results;
+  }
+
+  async function fetchDeadTypesForPage(baseUrl, pageNumber) {
+    const u = new URL(baseUrl);
+    if (pageNumber && pageNumber > 1) u.searchParams.set('dead_page', String(pageNumber));
+    else u.searchParams.delete('dead_page');
+
+    const res = await fetch(u.toString(), { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    if (!res.ok) return { count: 0, types: new Set() };
+    const html = await res.text().catch(() => '');
+    if (!html) return { count: 0, types: new Set() };
+
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const cards = Array.from(doc.querySelectorAll(SELECTOR_ANY_DEAD_CARD));
+    const types = new Set();
+    for (const card of cards) {
+      const t = getMonsterTypeFromCard(card);
+      if (t) types.add(t);
+    }
+    return { count: cards.length, types };
+  }
+
+  function kickOffAllDeadTypesPrefetch() {
+    const baseUrl = getBaseWaveUrl();
+    if (allDeadTypesFetch && lastAllDeadTypesBaseUrl === baseUrl) return;
+    if (tryLoadAllDeadIndex(baseUrl)) return;
+
+    lastAllDeadTypesBaseUrl = baseUrl;
+
+    // Update UI immediately to show "(loading...)" option text.
+    window.setTimeout(() => ensureTypeFilterOptions(), 0);
+
+    allDeadTypesFetch = (async () => {
+      try {
+        setStatus('Loading dead monster types from other pages...');
+        const merged = new Set();
+        const firstPageByType = new Map();
+        for (const card of Array.from(document.querySelectorAll(SELECTOR_ANY_DEAD_CARD))) {
+          const t = getMonsterTypeFromCard(card);
+          if (t) {
+            merged.add(t);
+            if (!firstPageByType.has(t)) firstPageByType.set(t, 1);
+          }
+        }
+
+        let maxPages = getDeadLootMaxPages(document);
+        if (!Number.isFinite(maxPages) || maxPages < 2) maxPages = 10;
+        maxPages = Math.max(2, Math.min(20, maxPages));
+
+        const pages = [];
+        for (let p = 2; p <= maxPages; p++) pages.push(p);
+
+        try {
+          console.info('[TM Graveyard] Prefetching dead types from pages:', pages);
+        } catch {
+          // ignore
+        }
+
+        const results = await runWithConcurrency(
+          pages,
+          3,
+          async (p) => await fetchDeadTypesForPage(baseUrl, p).catch((e) => ({ count: 0, types: new Set(), error: e }))
+        );
+
+        for (let i = 0; i < results.length; i++) {
+          const r = results[i];
+          if (!r || !r.count) {
+            // Don't abort: pagination count may still be right, but an individual request failed.
+            // Keep going and let the dropdown populate with whatever we got.
+            try {
+              console.warn('[TM Graveyard] failed to prefetch dead_page=' + String(pages[i] || ''), r?.error || r);
+            } catch {
+              // ignore
+            }
+            continue;
+          }
+          for (const t of Array.from(r.types || [])) merged.add(t);
+          for (const t of Array.from(r.types || [])) {
+            if (!t) continue;
+            const prev = firstPageByType.get(t);
+            const p = parseInt(String(pages[i] || '0'), 10);
+            if (!Number.isFinite(p) || p <= 0) continue;
+            if (!prev || p < prev) firstPageByType.set(t, p);
+          }
+        }
+
+        trySaveAllDeadIndex(baseUrl, merged, firstPageByType);
+        window.setTimeout(() => ensureTypeFilterOptions(), 0);
+        setStatus(`Dead monster types loaded (${merged.size}).`);
+      } catch (e) {
+        try {
+          console.warn('[TM Graveyard] prefetch crashed', e);
+        } catch {
+          // ignore
+        }
+        setStatus('Dead monster types: failed to load.');
+      }
+    })().finally(() => {
+      allDeadTypesFetch = null;
+    });
+  }
+
   function getSelectedLootIds() {
     return Array.from(document.querySelectorAll('input.tm-loot-select:checked[data-monster-id]'))
       .map((el) => parseInt(el.getAttribute('data-monster-id') || '0', 10))
@@ -57,6 +316,201 @@
     const el = document.getElementById('lootStatus') || document.getElementById('tmLootStatus');
     if (!el) return;
     el.textContent = text;
+  }
+
+  function isAutoLoadAllDeadEnabled() {
+    try {
+      return window.sessionStorage.getItem(UI_AUTO_LOAD_ALL_DEAD_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  function setAutoLoadAllDeadEnabled(on) {
+    try {
+      window.sessionStorage.setItem(UI_AUTO_LOAD_ALL_DEAD_KEY, on ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  }
+
+  function hasMergedAllDeadPages() {
+    try {
+      const base = getWaveKey();
+      return document.body.getAttribute('data-tm-dead-merged') === base;
+    } catch {
+      return false;
+    }
+  }
+
+  function markMergedAllDeadPages() {
+    try {
+      document.body.setAttribute('data-tm-dead-merged', getWaveKey());
+    } catch {
+      // ignore
+    }
+  }
+
+  function setIconSize(size) {
+    const s = String(size || '').toLowerCase();
+    try {
+      window.sessionStorage.setItem(UI_ICON_SIZE_KEY, s);
+    } catch {
+      // ignore
+    }
+
+    document.body.classList.remove('tm-graveyard-icons-small', 'tm-graveyard-icons-tiny');
+    if (s === 'small') document.body.classList.add('tm-graveyard-icons-small');
+    if (s === 'tiny') document.body.classList.add('tm-graveyard-icons-tiny');
+  }
+
+  function applyIconSizeFromStorage() {
+    try {
+      const saved = window.sessionStorage.getItem(UI_ICON_SIZE_KEY);
+      if (saved !== null && saved !== undefined) setIconSize(saved);
+    } catch {
+      // ignore
+    }
+  }
+
+  function setCardSize(size) {
+    const s = String(size || '').toLowerCase();
+    try {
+      window.sessionStorage.setItem(UI_CARD_SIZE_KEY, s);
+    } catch {
+      // ignore
+    }
+
+    document.body.classList.remove('tm-graveyard-cards-compact', 'tm-graveyard-cards-tiny');
+    if (s === 'compact') document.body.classList.add('tm-graveyard-cards-compact');
+    if (s === 'tiny') document.body.classList.add('tm-graveyard-cards-tiny');
+  }
+
+  function applyCardSizeFromStorage() {
+    try {
+      const saved = window.sessionStorage.getItem(UI_CARD_SIZE_KEY);
+      if (saved !== null && saved !== undefined) setCardSize(saved);
+    } catch {
+      // ignore
+    }
+  }
+
+  function getDeadCardsContainer() {
+    const monsterContainer = document.querySelector('.monster-container');
+    if (monsterContainer) return monsterContainer;
+
+    const first = document.querySelector(SELECTOR_ANY_DEAD_CARD);
+    if (!first) return null;
+    return first.closest('.custom-monster-container') || first.parentElement || document.body;
+  }
+
+  async function mergeAllDeadPagesIntoOne() {
+    if (mergeDeadPagesFetch) return mergeDeadPagesFetch;
+    if (hasMergedAllDeadPages()) {
+      setStatus('Dead pages already loaded.');
+      return null;
+    }
+
+    const baseUrl = getBaseWaveUrl();
+    let maxPages = getDeadLootMaxPages(document) || 0;
+
+    const container = getDeadCardsContainer();
+    if (!container) {
+      setStatus('Could not find monster container.');
+      return null;
+    }
+
+    const cur = new URL(window.location.href);
+    const curPage = parseInt(cur.searchParams.get('dead_page') || '1', 10) || 1;
+
+    // If page 1 only shows a "Next" link, maxPages can be under-detected. Probe forward a bit.
+    if (!maxPages || maxPages <= curPage + 1) {
+      try {
+        const probeU = new URL(baseUrl);
+        probeU.searchParams.set('dead_page', String(curPage + 1));
+        const res = await fetch(probeU.toString(), { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+        if (res.ok) {
+          const html = await res.text().catch(() => '');
+          if (html) {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const probed = getDeadLootMaxPages(doc) || 0;
+            if (probed > maxPages) maxPages = probed;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    maxPages = Math.max(1, Math.min(20, Number(maxPages || 1) || 1));
+    if (maxPages <= 1) {
+      setStatus('Only 1 dead page here.');
+      return null;
+    }
+
+    const existingIds = new Set(
+      Array.from(document.querySelectorAll(SELECTOR_ANY_DEAD_CARD))
+        .map((c) => parseInt(c.getAttribute('data-monster-id') || '0', 10))
+        .filter(Boolean)
+    );
+
+    mergeDeadPagesFetch = (async () => {
+      let appended = 0;
+      setStatus(`Loading dead pages (this can be heavy)...`);
+
+      const pages = [];
+      for (let p = 1; p <= maxPages; p++) if (p !== curPage) pages.push(p);
+
+      const results = await runWithConcurrency(
+        pages,
+        2,
+        async (p) => {
+          setStatus(`Loading dead page ${p}/${maxPages}... (added ${appended})`);
+          const u = new URL(baseUrl);
+          if (p > 1) u.searchParams.set('dead_page', String(p));
+          else u.searchParams.delete('dead_page');
+          const res = await fetch(u.toString(), { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+          if (!res.ok) return { page: p, html: '' };
+          const html = await res.text().catch(() => '');
+          return { page: p, html };
+        }
+      );
+
+      for (const r of results) {
+        const html = String(r?.html || '');
+        if (!html) continue;
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const cards = Array.from(doc.querySelectorAll(SELECTOR_ANY_DEAD_CARD));
+        for (const card of cards) {
+          const id = parseInt(card.getAttribute('data-monster-id') || '0', 10);
+          if (!id || existingIds.has(id)) continue;
+          existingIds.add(id);
+          container.appendChild(document.importNode(card, true));
+          appended++;
+        }
+      }
+
+      setStatus(`Loaded ${appended} dead monsters from other pages.`);
+      markMergedAllDeadPages();
+      ensureTypeFilterOptions();
+      applyTypeFilter();
+      ensureLootCheckboxes();
+      return appended;
+    })().finally(() => {
+      mergeDeadPagesFetch = null;
+    });
+
+    return mergeDeadPagesFetch;
+  }
+
+  function maybeAutoLoadAllDeadPages() {
+    if (!isAutoLoadAllDeadEnabled()) return;
+    if (!hasGraveyard()) return;
+    if (hasMergedAllDeadPages()) return;
+    // Fire and forget; status UI will show progress.
+    mergeAllDeadPagesIntoOne().catch(() => {
+      // ignore (merge function already sets status + logs if needed)
+    });
   }
 
   function ensureStatusHost() {
@@ -125,6 +579,17 @@
         background: #151725 !important;
       }
 
+      /* Make our selects readable even during event themes */
+      #tmLootControls select{
+        background: #11131b !important;
+        color: #e6e9ff !important;
+        border: 1px solid rgba(255,255,255,0.14) !important;
+      }
+      #tmLootControls select option{
+        background: #11131b !important;
+        color: #e6e9ff !important;
+      }
+
       #${MODAL_ID}{
         display:none; position:fixed; inset:0; z-index:99999;
         background: rgba(0,0,0,0.82);
@@ -179,6 +644,30 @@
         background: rgba(255,255,255,0.06);
         color: #fff; font-weight: 800;
       }
+
+      /* Optional: smaller monster icons */
+      body.tm-graveyard-icons-small .monster-card .monster-img{ max-height: 110px !important; }
+      body.tm-graveyard-icons-tiny  .monster-card .monster-img{ max-height: 80px !important; }
+
+      /* Optional: smaller monster cards (more columns) */
+      body.tm-graveyard-cards-compact .monster-container{ grid-template-columns:repeat(auto-fit, minmax(210px, 210px)) !important; }
+      body.tm-graveyard-cards-tiny .monster-container{ grid-template-columns:repeat(auto-fit, minmax(175px, 175px)) !important; }
+
+      body.tm-graveyard-cards-compact .monster-card{ width:210px !important; padding:10px !important; border-radius:12px !important; }
+      body.tm-graveyard-cards-tiny .monster-card{ width:175px !important; padding:8px !important; border-radius:12px !important; }
+      body.tm-graveyard-cards-compact .monster-row{ gap: 10px !important; }
+      body.tm-graveyard-cards-tiny .monster-row{ gap: 8px !important; }
+
+      body.tm-graveyard-cards-compact .monster-card h3{ font-size:15px !important; margin:8px 0 6px !important; }
+      body.tm-graveyard-cards-tiny .monster-card h3{ font-size:14px !important; margin:6px 0 5px !important; }
+
+      body.tm-graveyard-cards-compact .monster-card .join-btn,
+      body.tm-graveyard-cards-compact .monster-card .btn{ padding:8px 10px !important; font-size:12px !important; }
+      body.tm-graveyard-cards-tiny .monster-card .join-btn,
+      body.tm-graveyard-cards-tiny .monster-card .btn{ padding:7px 9px !important; font-size:12px !important; }
+
+      body.tm-graveyard-cards-compact .monster-stats{ font-size:12px !important; }
+      body.tm-graveyard-cards-tiny .monster-stats{ font-size:11.5px !important; }
     `;
     document.head.appendChild(style);
   }
@@ -313,6 +802,25 @@
     }
 
     updateSelectedCount();
+
+    // If the chosen type isn't present on this page, help navigate to the right dead_page (if we know it).
+    if (chosen) {
+      const anyVisible = Array.from(document.querySelectorAll(SELECTOR_ANY_DEAD_CARD)).some(
+        (card) => card && card.style.display !== 'none'
+      );
+      if (!anyVisible) {
+        const baseUrl = getBaseWaveUrl();
+        const cached = tryLoadAllDeadIndex(baseUrl);
+        const firstPage = cached?.firstPageByType instanceof Map ? cached.firstPageByType.get(chosen) : 0;
+        if (firstPage && firstPage > 0) {
+          const cur = new URL(window.location.href);
+          const curPage = parseInt(cur.searchParams.get('dead_page') || '1', 10) || 1;
+          if (firstPage !== curPage) {
+            setStatus(`No "${chosen}" on this page. It first appears on dead page ${firstPage}.`);
+          }
+        }
+      }
+    }
   }
 
   function ensureTypeFilterOptions() {
@@ -320,22 +828,29 @@
     if (!sel) return;
 
     const cards = Array.from(document.querySelectorAll(SELECTOR_ANY_DEAD_CARD));
-    const types = new Set();
+    const pageTypes = new Set();
     for (const card of cards) {
       const t = getMonsterTypeFromCard(card);
-      if (t) types.add(t);
+      if (t) pageTypes.add(t);
     }
+
+    const baseUrl = getBaseWaveUrl();
+    const cached = tryLoadAllDeadIndex(baseUrl);
+    const types = new Set(Array.from(pageTypes));
+    if (cached?.types) for (const t of Array.from(cached.types)) types.add(t);
+    else kickOffAllDeadTypesPrefetch();
 
     const prev = sel.value || '';
     const nextOptions = [''].concat(Array.from(types).sort((a, b) => a.localeCompare(b)));
 
-    const sig = nextOptions.join('\n');
+    const isLoading = !cached?.types && !!allDeadTypesFetch && lastAllDeadTypesBaseUrl === baseUrl;
+    const sig = nextOptions.join('\n') + `\n#loading=${isLoading ? '1' : '0'}`;
     if (sel.dataset.tmOptionsSig !== sig) {
       sel.innerHTML = '';
       for (const v of nextOptions) {
         const opt = document.createElement('option');
         opt.value = v;
-        opt.textContent = v ? v : 'All dead monsters';
+        opt.textContent = v ? v : (isLoading ? 'All dead monsters (loading...)' : 'All dead monsters');
         sel.appendChild(opt);
       }
       sel.dataset.tmOptionsSig = sig;
@@ -343,6 +858,15 @@
 
     const want = prev && nextOptions.includes(prev) ? prev : '';
     sel.value = want;
+
+    // Update badge, if present.
+    const badge = document.getElementById('tmLootTypeBadge');
+    if (badge) {
+      const cachedCount = cached?.types ? cached.types.size : 0;
+      badge.textContent = isLoading
+        ? `types: ${pageTypes.size} (page) / ${cachedCount || '?'} (all) — loading…`
+        : `types: ${pageTypes.size} (page) / ${cachedCount || pageTypes.size} (all)`;
+    }
   }
 
   function ensureLootCheckboxes() {
@@ -391,10 +915,15 @@
     ensureStyles();
     ensureStatusHost();
 
-    const anchor =
+    let anchor =
       document.getElementById('lootStatus') ||
       document.getElementById('toggleDeadBtn') ||
       document.querySelector('.batch-loot-card');
+
+    const containerForInsert = getDeadCardsContainer();
+    if (!anchor || !anchor.parentElement) {
+      if (containerForInsert && containerForInsert.parentElement) anchor = containerForInsert;
+    }
 
     if (!anchor || !anchor.parentElement) return;
 
@@ -413,10 +942,79 @@
     selType.id = 'tmLootTypeFilter';
     selType.style.cssText =
       'padding:6px 8px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);' +
-      'background:rgba(255,255,255,0.06);color:#fff;font-size:12px;';
+      'background:#11131b;color:#e6e9ff;font-size:12px;';
 
     typeWrap.appendChild(typeLabel);
     typeWrap.appendChild(selType);
+
+    const badge = document.createElement('span');
+    badge.id = 'tmLootTypeBadge';
+    badge.style.cssText = 'color:#9aa0be;font-size:12px;';
+    badge.textContent = 'types: ...';
+    typeWrap.appendChild(badge);
+
+    const btnReloadTypes = document.createElement('button');
+    btnReloadTypes.type = 'button';
+    btnReloadTypes.className = 'btn';
+    btnReloadTypes.textContent = 'Reload types';
+
+    const btnGoToType = document.createElement('button');
+    btnGoToType.type = 'button';
+    btnGoToType.className = 'btn';
+    btnGoToType.textContent = 'Go to type page';
+    btnGoToType.disabled = true;
+
+    const iconSizeWrap = document.createElement('div');
+    iconSizeWrap.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
+
+    const iconSizeLabel = document.createElement('span');
+    iconSizeLabel.style.cssText = 'color:#c7cbdf;font-size:12px;';
+    iconSizeLabel.textContent = 'Icons:';
+
+    const iconSizeSel = document.createElement('select');
+    iconSizeSel.style.cssText =
+      'padding:6px 8px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);' +
+      'background:rgba(255,255,255,0.06);color:#fff;font-size:12px;';
+    iconSizeSel.innerHTML = `<option value="">Normal</option><option value="small">Small</option><option value="tiny">Tiny</option>`;
+
+    iconSizeWrap.appendChild(iconSizeLabel);
+    iconSizeWrap.appendChild(iconSizeSel);
+
+    const btnLoadAllDead = document.createElement('button');
+    btnLoadAllDead.type = 'button';
+    btnLoadAllDead.className = 'btn';
+    btnLoadAllDead.textContent = 'Load all dead pages';
+
+    const autoLoadWrap = document.createElement('label');
+    autoLoadWrap.style.cssText = 'display:inline-flex;gap:8px;align-items:center;color:#c7cbdf;font-size:12px;';
+    autoLoadWrap.title = 'Automatically loads all dead pages into the current page (can be heavy).';
+
+    const autoLoadCb = document.createElement('input');
+    autoLoadCb.type = 'checkbox';
+    autoLoadCb.style.cssText = 'width:16px;height:16px;';
+    autoLoadCb.checked = isAutoLoadAllDeadEnabled();
+
+    const autoLoadTxt = document.createElement('span');
+    autoLoadTxt.textContent = 'Auto-load all dead pages';
+
+    autoLoadWrap.appendChild(autoLoadCb);
+    autoLoadWrap.appendChild(autoLoadTxt);
+
+    const cardSizeWrap = document.createElement('div');
+    cardSizeWrap.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
+
+    const cardSizeLabel = document.createElement('span');
+    cardSizeLabel.style.cssText = 'color:#c7cbdf;font-size:12px;';
+    cardSizeLabel.textContent = 'Cards:';
+
+    const cardSizeSel = document.createElement('select');
+    cardSizeSel.style.cssText =
+      'padding:6px 8px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);' +
+      'background:rgba(255,255,255,0.06);color:#fff;font-size:12px;';
+    cardSizeSel.innerHTML = `<option value=\"\">Normal</option><option value=\"compact\">Compact</option><option value=\"tiny\">Tiny</option>`;
+
+    cardSizeWrap.appendChild(cardSizeLabel);
+    cardSizeWrap.appendChild(cardSizeSel);
 
     const btnSelVisible = document.createElement('button');
     btnSelVisible.type = 'button';
@@ -440,16 +1038,37 @@
     count.textContent = 'Selected: 0';
 
     wrap.appendChild(typeWrap);
+    wrap.appendChild(btnReloadTypes);
+    wrap.appendChild(btnGoToType);
+    wrap.appendChild(iconSizeWrap);
+    wrap.appendChild(cardSizeWrap);
+    wrap.appendChild(btnLoadAllDead);
+    wrap.appendChild(autoLoadWrap);
     wrap.appendChild(btnSelVisible);
     wrap.appendChild(btnClear);
     wrap.appendChild(btnLoot);
     wrap.appendChild(count);
 
-    anchor.parentElement.insertBefore(wrap, anchor.nextSibling);
+    // Prefer inserting ABOVE the monster grid if we're anchoring to the container.
+    const insertBefore = containerForInsert && anchor === containerForInsert;
+    anchor.parentElement.insertBefore(wrap, insertBefore ? anchor : anchor.nextSibling);
 
     btnSelVisible.addEventListener('click', () => {
       ensureLootCheckboxes();
       const cards = getVisibleCards(getEligibleDeadCards());
+      const chosen = normName(document.getElementById('tmLootTypeFilter')?.value || '').toLowerCase();
+      if (!cards.length && chosen) {
+        const baseUrl = getBaseWaveUrl();
+        const cached = tryLoadAllDeadIndex(baseUrl);
+        const firstPage = cached?.firstPageByType instanceof Map ? cached.firstPageByType.get(chosen) : 0;
+        if (firstPage && firstPage > 0) {
+          setStatus(`0 selected. "${chosen}" is on dead page ${firstPage} (use the Go to button).`);
+        } else {
+          setStatus('0 selected (none visible + lootable on this page).');
+        }
+        updateSelectedCount();
+        return;
+      }
       for (const card of cards) {
         const id = parseInt(card.getAttribute('data-monster-id') || '0', 10);
         const cb = id ? document.querySelector(`input.tm-loot-select[data-monster-id="${id}"]`) : null;
@@ -486,8 +1105,86 @@
       ensureLootCheckboxes();
     });
 
+    btnReloadTypes.addEventListener('click', () => {
+      clearAllDeadTypesCacheForCurrentWave();
+      // Kick off fetch again and refresh options.
+      allDeadTypesFetch = null;
+      lastAllDeadTypesBaseUrl = '';
+      kickOffAllDeadTypesPrefetch();
+      ensureTypeFilterOptions();
+    });
+
+    btnLoadAllDead.addEventListener('click', async () => {
+      btnLoadAllDead.disabled = true;
+      try {
+        await mergeAllDeadPagesIntoOne();
+      } finally {
+        btnLoadAllDead.disabled = false;
+      }
+    });
+
+    autoLoadCb.addEventListener('change', () => {
+      setAutoLoadAllDeadEnabled(!!autoLoadCb.checked);
+      setStatus(autoLoadCb.checked ? 'Auto-load enabled.' : 'Auto-load disabled.');
+      maybeAutoLoadAllDeadPages();
+    });
+
+    function updateGoToTypeButton() {
+      const chosen = normName(selType.value || '').toLowerCase();
+      if (!chosen) {
+        btnGoToType.disabled = true;
+        btnGoToType.textContent = 'Go to type page';
+        return;
+      }
+
+      const baseUrl = getBaseWaveUrl();
+      const cached = tryLoadAllDeadIndex(baseUrl);
+      const firstPage = cached?.firstPageByType instanceof Map ? cached.firstPageByType.get(chosen) : 0;
+
+      const cur = new URL(window.location.href);
+      const curPage = parseInt(cur.searchParams.get('dead_page') || '1', 10) || 1;
+
+      if (firstPage && firstPage > 0 && firstPage !== curPage) {
+        btnGoToType.disabled = false;
+        btnGoToType.textContent = `Go to dead page ${firstPage}`;
+        btnGoToType.dataset.tmTargetPage = String(firstPage);
+      } else {
+        btnGoToType.disabled = true;
+        btnGoToType.textContent = 'Go to type page';
+        delete btnGoToType.dataset.tmTargetPage;
+      }
+    }
+
+    btnGoToType.addEventListener('click', () => {
+      const target = parseInt(btnGoToType.dataset.tmTargetPage || '0', 10);
+      if (!target) return;
+      const u = new URL(window.location.href);
+      if (target > 1) u.searchParams.set('dead_page', String(target));
+      else u.searchParams.delete('dead_page');
+      window.location.href = u.toString();
+    });
+
     ensureTypeFilterOptions();
     applyTypeFilter();
+    updateGoToTypeButton();
+
+    selType.addEventListener('change', updateGoToTypeButton);
+
+    applyIconSizeFromStorage();
+    try {
+      iconSizeSel.value = window.sessionStorage.getItem(UI_ICON_SIZE_KEY) || '';
+    } catch {
+      iconSizeSel.value = '';
+    }
+    iconSizeSel.addEventListener('change', () => setIconSize(iconSizeSel.value));
+
+    applyCardSizeFromStorage();
+    try {
+      cardSizeSel.value = window.sessionStorage.getItem(UI_CARD_SIZE_KEY) || '';
+    } catch {
+      cardSizeSel.value = '';
+    }
+    cardSizeSel.addEventListener('change', () => setCardSize(cardSizeSel.value));
   }
 
   async function lootOne(monsterId) {
@@ -567,11 +1264,18 @@
 
   function wireObservers() {
     const run = debounce(() => {
-      if (!hasGraveyard()) return;
       ensureControls();
-      ensureTypeFilterOptions();
-      applyTypeFilter();
-      ensureLootCheckboxes();
+      if (hasGraveyard()) {
+        const controls = document.getElementById('tmLootControls');
+        if (controls) controls.style.display = '';
+        ensureTypeFilterOptions();
+        applyTypeFilter();
+        ensureLootCheckboxes();
+        maybeAutoLoadAllDeadPages();
+      } else {
+        const controls = document.getElementById('tmLootControls');
+        if (controls) controls.style.display = 'none';
+      }
     }, 250);
 
     const firstCard = document.querySelector('.monster-card[data-monster-id]');
@@ -596,13 +1300,24 @@
   }
 
   if (!/\/active_wave\.php$/i.test(window.location.pathname)) return;
-  if (!hasGraveyard()) return;
+
+  // Always install styles + observers so the UI works even if dead cards render later (page 1 often loads them after toggles).
+  ensureStyles();
+  applyIconSizeFromStorage();
+  applyCardSizeFromStorage();
 
   window.setTimeout(() => {
+    // Only show controls if there are dead cards. Observers will handle later renders.
     ensureControls();
-    ensureTypeFilterOptions();
-    applyTypeFilter();
-    ensureLootCheckboxes();
+    const controls = document.getElementById('tmLootControls');
+    if (controls) controls.style.display = hasGraveyard() ? '' : 'none';
+
+    if (hasGraveyard()) {
+      ensureTypeFilterOptions();
+      applyTypeFilter();
+      ensureLootCheckboxes();
+      maybeAutoLoadAllDeadPages();
+    }
   }, 300);
 
   wireObservers();
