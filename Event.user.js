@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra Emberfall Quest + Drops Helper
 // @namespace    https://demonicscans.org/
-// @version      0.2.0
+// @version      0.2.1
 // @description  Captures Emberfall Quest Journal from the event page and shows it on Arcane Wild Fringe (active_wave) + battle pages, including which mobs drop required quest items.
 // @match        https://demonicscans.org/event_page.php*
 // @match        https://demonicscans.org/active_wave.php*
@@ -127,17 +127,71 @@
     return normName(s).toLowerCase();
   }
 
-  function isEventPage() {
+  // Emberfall uses event_page id 7 in the nav, but wave/battle links point to event=8 in your snapshots.
+  const EMBERFALL_EVENT_IDS = new Set(['7', '8']);
+
+  function getSearchParam(name) {
+    try {
+      return new URLSearchParams(window.location.search).get(name);
+    } catch {
+      return null;
+    }
+  }
+
+  function titleLooksEmberfall() {
+    const title = String(document.title || '').toLowerCase();
+    return title.includes('emberfall') || title.includes('vaelith');
+  }
+
+  function pageHasLinkToEmberfallEventPage() {
+    const links = Array.from(document.querySelectorAll('a[href]'));
+    for (const a of links) {
+      const href = String(a.getAttribute('href') || '');
+      if (!/event_page\.php\?event=/i.test(href)) continue;
+      const m = href.match(/[?&]event=(\d+)/i);
+      if (m && EMBERFALL_EVENT_IDS.has(String(m[1]))) return true;
+    }
+    return false;
+  }
+
+  function pageHasBackToEmberfallEventButton() {
+    const links = Array.from(document.querySelectorAll('a[href]'));
+    for (const a of links) {
+      const href = String(a.getAttribute('href') || '');
+      if (!/event_page\.php\?event=/i.test(href)) continue;
+      const m = href.match(/[?&]event=(\d+)/i);
+      if (!m || !EMBERFALL_EVENT_IDS.has(String(m[1]))) continue;
+      const text = normName(a.textContent || '').toLowerCase();
+      if (text.includes('back') && text.includes('event')) return true;
+    }
+    return false;
+  }
+
+  function pageHasLinkToEmberfallActiveWave() {
+    const links = Array.from(document.querySelectorAll('a[href]'));
+    for (const a of links) {
+      const href = String(a.getAttribute('href') || '');
+      if (!/active_wave\.php\?event=/i.test(href)) continue;
+      const m = href.match(/[?&]event=(\d+)/i);
+      if (m && EMBERFALL_EVENT_IDS.has(String(m[1]))) return true;
+    }
+    return false;
+  }
+
+  function isEmberfallEventPage() {
     if (!/\/event_page\.php$/i.test(window.location.pathname)) return false;
-    // Prefer explicit event=7, but also allow event page variants where the URL param is missing.
-    const sp = new URLSearchParams(window.location.search);
-    const ev = sp.get('event');
-    if (ev === '7') return true; // Emberfall in your snapshots.
+
+    const ev = getSearchParam('event');
+    if (ev && EMBERFALL_EVENT_IDS.has(String(ev))) return true;
+
+    // Best signal: the Emberfall map has this panel.
     if (document.getElementById('questJournalPanel')) return true;
     if (document.querySelector('[id*="quest"][id*="journal"]')) return true;
-    const title = String(document.title || '').toLowerCase();
-    if (title.includes('emberfall')) return true;
-    // Don't treat other event pages as relevant by default.
+
+    // Fallbacks.
+    if (titleLooksEmberfall()) return true;
+    if (pageHasLinkToEmberfallActiveWave()) return true;
+
     return false;
   }
 
@@ -149,16 +203,34 @@
     return /\/battle\.php$/i.test(window.location.pathname);
   }
 
-  function isRelevantPage() {
-    if (isEventPage()) return true;
-    if (isBattlePage()) return !!document.querySelector('.loot-grid');
+  function isEmberfallActiveWavePage() {
     if (!isActiveWavePage()) return false;
-    const sp = new URLSearchParams(window.location.search);
-    if (sp.has('event')) return true;
-    const title = String(document.title || '').toLowerCase();
-    if (title.includes('emberfall') || title.includes('vaelith')) return true;
-    // Event wave list page in your snapshots has these monster cards.
-    if (document.querySelector('.monster-card[data-monster-id]')) return true;
+
+    const ev = getSearchParam('event');
+    if (ev && EMBERFALL_EVENT_IDS.has(String(ev))) return true;
+
+    if (titleLooksEmberfall()) return true;
+    if (pageHasBackToEmberfallEventButton()) return true; // "Back to Event" button on Emberfall waves
+
+    return false;
+  }
+
+  function isEmberfallBattlePage() {
+    if (!isBattlePage()) return false;
+
+    const ev = getSearchParam('event');
+    if (ev && EMBERFALL_EVENT_IDS.has(String(ev))) return true;
+
+    // Emberfall battle pages include a "Back to event" link pointing to active_wave.php?event=...
+    if (pageHasLinkToEmberfallActiveWave()) return true;
+
+    return false;
+  }
+
+  function isRelevantPage() {
+    if (isEmberfallEventPage()) return true;
+    if (isEmberfallActiveWavePage()) return true;
+    if (isEmberfallBattlePage()) return true;
     return false;
   }
 
@@ -443,7 +515,7 @@
     });
     btnCapture.addEventListener('click', () => {
       if (!isEnabled()) return;
-      if (!isEventPage()) {
+      if (!isEmberfallEventPage()) {
         setStatus('Capture Quests works on the Emberfall event page (main map).');
         refresh();
         return;
@@ -622,6 +694,88 @@
   function refresh() {
     const content = document.getElementById('tmEmberfallHelperContent');
     if (content) content.innerHTML = renderQuestsHtml();
+
+    const inline = document.getElementById('tmEmberfallHelperInline');
+    if (inline) inline.innerHTML = renderQuestsInlineHtml();
+  }
+
+  function renderQuestsInlineHtml() {
+    if (!isEmberfallActiveWavePage()) return '';
+
+    const q = loadQuests();
+    const dropsByMob = loadDropsByMob();
+    const haveDrops = Object.keys(dropsByMob).length;
+
+    const lines = [];
+    lines.push(`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">`);
+    lines.push(`<div style="font-weight:900;color:#fff;">Quest Journal</div>`);
+    lines.push(`<div style="color:#9aa0b8;white-space:nowrap;font-size:12px;">Drops known: <strong>${haveDrops}</strong> mobs</div>`);
+    lines.push(`</div>`);
+
+    if (!q.quests || !q.quests.length) {
+      lines.push(`<div style="margin-top:6px;color:#c7cbdf;">No quests captured yet. Open the Emberfall map and press <strong>Capture Quests</strong>.</div>`);
+      return lines.join('');
+    }
+
+    lines.push(`<div style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">`);
+    for (const quest of q.quests.slice(0, 6)) {
+      const objective = quest.objective || '';
+      let source = '';
+      if (quest.need && quest.need.kind === 'item') {
+        const sources = computeItemSources(quest.need.name);
+        if (sources.length) {
+          source =
+            `<div style="margin-top:4px;color:#cfeccc;">Drops: ` +
+            sources
+              .slice(0, 2)
+              .map((s) => escapeHtml(s.mobName))
+              .join(', ') +
+            (sources.length > 2 ? ` +${sources.length - 2}` : '') +
+            `</div>`;
+        }
+      }
+
+      lines.push(
+        `<div style="padding:8px;border-radius:12px;border:1px solid rgba(255,255,255,0.10);background:rgba(20,22,35,0.55);">` +
+          `<div style="color:#ffd369;font-weight:800;line-height:1.35;">${escapeHtml(objective)}</div>` +
+          source +
+        `</div>`
+      );
+    }
+    lines.push(`</div>`);
+
+    return lines.join('');
+  }
+
+  function ensureInlineQuestSummary() {
+    if (!isEmberfallActiveWavePage()) return;
+    if (document.getElementById('tmEmberfallHelperInlineWrap')) return;
+
+    const anchor =
+      document.querySelector('.waves-nav') ||
+      document.querySelector('.gate-info') ||
+      document.querySelector('h1') ||
+      document.body.firstElementChild;
+
+    if (!anchor || !anchor.parentElement) return;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'tmEmberfallHelperInlineWrap';
+    Object.assign(wrap.style, {
+      maxWidth: '900px',
+      margin: '12px auto 18px',
+      padding: '12px 14px',
+      borderRadius: '14px',
+      border: '1px solid rgba(255,255,255,0.10)',
+      background: 'linear-gradient(180deg, rgba(36,39,62,.90), rgba(21,23,37,.90))',
+      boxShadow: '0 10px 24px rgba(0,0,0,.32)'
+    });
+
+    const inner = document.createElement('div');
+    inner.id = 'tmEmberfallHelperInline';
+    wrap.appendChild(inner);
+
+    anchor.parentElement.insertBefore(wrap, anchor.nextSibling);
   }
 
   function maybeCaptureDropsFromBattle() {
@@ -637,15 +791,17 @@
 
   ensureDropsSeedInstalled();
   renderPanel();
+  ensureInlineQuestSummary();
+  refresh();
 
-  if (isBattlePage()) {
+  if (isEmberfallBattlePage()) {
     // Auto-learn loot tables as you visit battles.
     maybeCaptureDropsFromBattle();
     refresh();
   }
 
   // On event page, offer a small hint if quests are missing.
-  if (isEventPage()) {
+  if (isEmberfallEventPage()) {
     const q = loadQuests();
     if (!q.quests || !q.quests.length) {
       setStatus('Tip: press "Capture Quests" to save your Quest Journal for wave/battle pages.');
