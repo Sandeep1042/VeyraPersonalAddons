@@ -7,8 +7,8 @@
 // @match        https://demonicscans.org/active_wave.php*
 // @match        https://demonicscans.org/battle.php*
 // @homepageURL  https://github.com/nobody65321/VeyraPersonalAddons
-// @update       https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/Event.user.js
-// @download     https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/Event.user.js
+// @updateURL    https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/Event.user.js
+// @downloadURL  https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/Event.user.js
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
