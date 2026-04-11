@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.11
+// @version      0.3.12
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Shadowbridge monster board, Solo PvP bot.
 // @match        *://demonicscans.org/*
 // @match        *://www.demonicscans.org/*
@@ -29,11 +29,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.11',
+      version: '0.3.12',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.11'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.11');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.12'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.12');
   } catch (e) {
     // ignore
   }
@@ -43,10 +43,17 @@
 (function(){
   'use strict';
 
-  const VERSION = '0.3.11';
+  const VERSION = '0.3.12';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
   const CHANGELOG = {
+    '0.3.12': {
+      date: '2026-04-11',
+      changes: [
+        'Shadowbridge (D1) strategy builder now matches the Wave Strategy modal more closely: attack picker, strategy order list, and remembered settings.',
+        'Damage limit now defaults OFF with value 0, and the selected strategy is remembered.'
+      ]
+    },
     '0.3.11': {
       date: '2026-04-11',
       changes: [
@@ -2994,11 +3001,11 @@
           </div>
 
           <div class="qol-attacks">
-            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-stam="1">⚡ Quick Join & Attack (1)</button>
-            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-stam="10">⚡ Quick Join & Attack (10)</button>
-            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-stam="50">⚡ Quick Join & Attack (50)</button>
-            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-stam="100">⚡ Quick Join & Attack (100)</button>
-            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-stam="200">⚡ Quick Join & Attack (200)</button>
+            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="0" data-stam="1">⚡ Quick Join & Attack (1)</button>
+            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="-1" data-stam="10">⚡ Quick Join & Attack (10)</button>
+            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="-2" data-stam="50">⚡ Quick Join & Attack (50)</button>
+            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="-3" data-stam="100">⚡ Quick Join & Attack (100)</button>
+            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="-4" data-stam="200">⚡ Quick Join & Attack (200)</button>
             <button type="button" class="btn btnAttackStrat" data-role="attack-strat-run">🧠 Quick Join & Attack (50) (limit 3.5m)</button>
           </div>
         </div>
@@ -3018,21 +3025,25 @@
 
       <div class="attack-strat-overlay" data-role="strat-overlay" style="display:none;">
         <div class="attack-strat-modal">
-          <h3 class="attack-strat-title">🧠 D1 Attack Strategy</h3>
-          <div class="attack-strat-label">Base stamina:</div>
-          <div class="attack-strat-picker" data-role="strat-stam-picker">
-            <button type="button" class="btn attack-strat-skill-btn" data-role="strat-stam" data-stam="1">1</button>
-            <button type="button" class="btn attack-strat-skill-btn" data-role="strat-stam" data-stam="10">10</button>
-            <button type="button" class="btn attack-strat-skill-btn" data-role="strat-stam" data-stam="50">50</button>
-            <button type="button" class="btn attack-strat-skill-btn" data-role="strat-stam" data-stam="100">100</button>
-            <button type="button" class="btn attack-strat-skill-btn" data-role="strat-stam" data-stam="200">200</button>
+          <h3 class="attack-strat-title">🧠 Attack Strategy Builder</h3>
+
+          <div class="attack-strat-picker" data-role="skill-picker">
+            <button type="button" class="btn attack-strat-skill-btn" data-role="skill-pick" data-skill-id="0" data-stam="1">Slash (1)</button>
+            <button type="button" class="btn attack-strat-skill-btn" data-role="skill-pick" data-skill-id="-1" data-stam="10">Power Slash (10)</button>
+            <button type="button" class="btn attack-strat-skill-btn" data-role="skill-pick" data-skill-id="-2" data-stam="50">Heroic Slash (50)</button>
+            <button type="button" class="btn attack-strat-skill-btn" data-role="skill-pick" data-skill-id="-3" data-stam="100">Ultimate Slash (100)</button>
+            <button type="button" class="btn attack-strat-skill-btn" data-role="skill-pick" data-skill-id="-4" data-stam="200">Legendary Slash (200)</button>
           </div>
 
-          <div class="attack-strat-meta" data-role="strat-meta">
-            <div class="attack-strat-damage-limit">
-              <input type="checkbox" id="useDamageLimitCheckbox" class="attack-strat-checkbox" data-role="strat-use-limit">
-              <label for="useDamageLimitCheckbox" class="attack-strat-label">Use Damage Limit</label>
-              <input type="number" min="0" id="damageLimitInput" class="attack-strat-damage-limit-input" data-role="strat-limit" value="3500000">
+          <div class="attack-strat-label">Strategy order:</div>
+          <div class="attack-strat-chips" data-role="strategy-chips"></div>
+
+          <div class="attack-strat-meta">
+            Total stamina cost: <span class="total-stam-cost" data-role="total-stam-cost">0</span>
+            <div class="attack-strat-damage-limit" style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <input type="checkbox" class="attack-strat-checkbox" data-role="strat-use-limit">
+              <label class="attack-strat-label">Use Damage Limit (useful for crits)</label>
+              <input type="number" min="0" class="attack-strat-damage-limit-input" data-role="strat-limit" value="0">
             </div>
           </div>
 
@@ -3234,7 +3245,7 @@
       const results = [];
       for (let i = 0; i < 5; i += 1) {
         try {
-          const result = await quickJoinAndAttack(target, 1);
+          const result = await quickJoinAndAttack(target, 0, 1);
           if (result.ok && result.damageDelta > 0) {
             samples.push(result.damageDelta);
             quotaStore.mark(target);
@@ -3378,7 +3389,8 @@
             const chosenEstimate = pick.estimatedDamage;
             controls.runLine.textContent = `Attacking ${monster.name} (${index + 1}/${plannedCandidates.length}) with ${chosenStamina} stam. Hit ${hitCount + 1}, current ${formatDamage(monster.personalDamage)}, left ${formatDamage(currentRemaining)}.`;
 
-            const result = await quickJoinAndAttack(monster, chosenStamina);
+            const chosenSkill = getSkillByStamina(chosenStamina);
+            const result = await quickJoinAndAttack(monster, chosenSkill.skillId, chosenStamina);
             if (!result.ok) {
               if (isRetryableAttackFailure(result)) {
                 stopReason = 'cooldown wait';
@@ -3491,28 +3503,57 @@
       await runFillAllByKind('xp');
     });
 
-    const STRAT_STAM_KEY = 'tm_sbw_strat_stam_v1';
-    const STRAT_USE_LIMIT_KEY = 'tm_sbw_strat_use_limit_v1';
-    const STRAT_LIMIT_KEY = 'tm_sbw_strat_limit_v1';
+    const STRAT_ORDER_KEY = 'tm_sbw_strategy_order_v1';
+    const STRAT_USE_LIMIT_KEY = 'tm_sbw_strategy_use_limit_v2';
+    const STRAT_LIMIT_KEY = 'tm_sbw_strategy_limit_v2';
 
-    function readStrat() {
-      let stam = 50;
-      let useLimit = true;
-      let limit = 3500000;
-      try {
-        const s = parseInt(window.sessionStorage.getItem(STRAT_STAM_KEY) || '50', 10);
-        if (Number.isFinite(s) && s > 0) stam = s;
-        useLimit = (window.sessionStorage.getItem(STRAT_USE_LIMIT_KEY) || '1') === '1';
-        const l = parseInt(window.sessionStorage.getItem(STRAT_LIMIT_KEY) || '3500000', 10);
-        if (Number.isFinite(l) && l >= 0) limit = l;
-      } catch {}
-      return { stam, useLimit, limit };
+    const SKILLS = [
+      { skillId: 0, name: 'Slash', stamina: 1 },
+      { skillId: -1, name: 'Power Slash', stamina: 10 },
+      { skillId: -2, name: 'Heroic Slash', stamina: 50 },
+      { skillId: -3, name: 'Ultimate Slash', stamina: 100 },
+      { skillId: -4, name: 'Legendary Slash', stamina: 200 }
+    ];
+
+    function getSkillById(skillId) {
+      const id = Number(skillId);
+      return SKILLS.find((s) => s.skillId === id) || null;
     }
 
-    function writeStrat(next) {
-      try { window.sessionStorage.setItem(STRAT_STAM_KEY, String(next.stam || 50)); } catch {}
-      try { window.sessionStorage.setItem(STRAT_USE_LIMIT_KEY, (next.useLimit ? '1' : '0')); } catch {}
-      try { window.sessionStorage.setItem(STRAT_LIMIT_KEY, String(next.limit ?? 3500000)); } catch {}
+    function getSkillByStamina(stamina) {
+      const s = Number(stamina);
+      return SKILLS.find((sk) => sk.stamina === s) || SKILLS[0];
+    }
+
+    function readStrategyOrder() {
+      try {
+        const raw = window.sessionStorage.getItem(STRAT_ORDER_KEY) || '[]';
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return [];
+        return arr.map((x) => Number(x)).filter((n) => Number.isFinite(n) && !!getSkillById(n));
+      } catch {
+        return [];
+      }
+    }
+
+    function writeStrategyOrder(order) {
+      try { window.sessionStorage.setItem(STRAT_ORDER_KEY, JSON.stringify(order || [])); } catch {}
+    }
+
+    function readLimitConfig() {
+      let useLimit = false;
+      let limit = 0;
+      try {
+        useLimit = (window.sessionStorage.getItem(STRAT_USE_LIMIT_KEY) || '0') === '1';
+        const l = parseInt(window.sessionStorage.getItem(STRAT_LIMIT_KEY) || '0', 10);
+        if (Number.isFinite(l) && l >= 0) limit = l;
+      } catch {}
+      return { useLimit, limit };
+    }
+
+    function writeLimitConfig(next) {
+      try { window.sessionStorage.setItem(STRAT_USE_LIMIT_KEY, next.useLimit ? '1' : '0'); } catch {}
+      try { window.sessionStorage.setItem(STRAT_LIMIT_KEY, String(next.limit ?? 0)); } catch {}
     }
 
     function fmtShort(n) {
@@ -3527,6 +3568,12 @@
     function updateStratRunLabel() {
       const btn = board.querySelector('[data-role="attack-strat-run"]');
       if (!btn) return;
+      const order = readStrategyOrder();
+      const total = (order || []).reduce((sum, id) => sum + (getSkillById(id)?.stamina || 0), 0);
+      const lim = readLimitConfig();
+      btn.disabled = order.length === 0;
+      btn.textContent = `🧠 Quick Join & Attack (${total || 0})` + (lim.useLimit && lim.limit > 0 ? ` (limit ${fmtShort(lim.limit)})` : '');
+      return;
       const s = readStrat();
       btn.textContent = `🧠 Quick Join & Attack (${s.stam})` + (s.useLimit ? ` (limit ${fmtShort(s.limit)})` : '');
     }
@@ -3545,11 +3592,9 @@
       });
     }
 
-    async function runQuickAttack(staminaCost, opts = {}) {
+    async function runQuickAttack(skillId, staminaCost) {
+      const sid = Number(skillId);
       const stamina = Math.max(1, parseInt(String(staminaCost || '1'), 10) || 1);
-      const strat = readStrat();
-      const useLimit = !!opts.useLimit && !!strat.useLimit;
-      const limit = Number(strat.limit || 0);
 
       const candidates = allMonsters.filter((monster) =>
         selected.has(monster.id) &&
@@ -3587,23 +3632,11 @@
           continue;
         }
 
-        if (useLimit && monster.limitRule) {
-          const remaining = Math.max(0, Number(monster.limitRule.targetDamage || 0) - Number(monster.personalDamage || 0));
-          if (remaining <= limit) {
-            skipped.push({
-              id: monster.dgmid || monster.name,
-              ok: false,
-              html: `Skipped: remaining <= limit<br>Remaining: <strong>${escapeHtml(formatDamage(remaining))}</strong> | Limit: ${escapeHtml(formatDamage(limit))}`
-            });
-            continue;
-          }
-        }
-
         processedCount += 1;
         controls.selectedCount.textContent = `Selected: ${selected.size} | attacking ${processedCount}/${candidates.length}`;
 
         try {
-          const result = await quickJoinAndAttack(monster, stamina);
+          const result = await quickJoinAndAttack(monster, sid, stamina);
           if (result.ok) {
             results.push(result);
             quotaStore.mark(monster);
@@ -3644,30 +3677,167 @@
       render();
     }
 
+    async function runStrategyAttack() {
+      const order = readStrategyOrder();
+      const totalStam = getStrategyTotalStam(order);
+      const lim = readLimitConfig();
+
+      const candidates = allMonsters.filter((monster) =>
+        selected.has(monster.id) &&
+        monster.actionUrl &&
+        monster.dgmid &&
+        monster.instanceId &&
+        !monster.dead
+      );
+
+      if (!order.length) {
+        openAttackModal(board, { processed: 0, success: 0, failed: 1, results: [{ id: '-', ok: false, html: 'Add at least 1 attack to the strategy first.' }] });
+        return;
+      }
+
+      if (candidates.length === 0) {
+        openAttackModal(board, { processed: 0, success: 0, failed: 1, results: [{ id: '-', ok: false, html: 'No live selected monsters with valid battle links were found.' }] });
+        return;
+      }
+
+      setAttackBusy(true);
+      const results = [];
+      let okCount = 0;
+      let processedHits = 0;
+
+      for (const monster of candidates) {
+        for (let i = 0; i < order.length; i += 1) {
+          const sk = getSkillById(order[i]);
+          if (!sk) continue;
+
+          const liveUsageMap = getRuleUsageMap();
+          if (monster.limitRule && hasReachedLimit(monster, liveUsageMap)) {
+            results.push({
+              id: monster.dgmid || monster.name,
+              ok: false,
+              html: `Skipped: target reached<br>${escapeHtml(buildLimitSummary(monster, liveUsageMap, allMonsters))}`
+            });
+            break;
+          }
+
+          if (lim.useLimit && lim.limit > 0 && monster.limitRule) {
+            const remaining = Math.max(0, Number(monster.limitRule.targetDamage || 0) - Number(monster.personalDamage || 0));
+            if (remaining <= lim.limit) {
+              results.push({
+                id: monster.dgmid || monster.name,
+                ok: false,
+                html: `Stopped: remaining <= limit<br>Remaining: <strong>${escapeHtml(formatDamage(remaining))}</strong> | Limit: ${escapeHtml(formatDamage(lim.limit))}`
+              });
+              break;
+            }
+          }
+
+          processedHits += 1;
+          controls.selectedCount.textContent = `Selected: ${selected.size} | attacking ${processedHits}/${candidates.length} (${totalStam} stam)`;
+
+          try {
+            const r = await quickJoinAndAttack(monster, sk.skillId, sk.stamina);
+            const withId = { ...r, id: `${monster.dgmid || monster.name} • ${sk.name} (${sk.stamina})` };
+            results.push(withId);
+            if (r.ok) {
+              okCount += 1;
+              quotaStore.mark(monster);
+              const nextDamage = Number(monster.personalDamage || 0) + Number(r.damageDelta || 0);
+              monster.personalDamage = Math.max(nextDamage, Number(monster.personalDamage || 0));
+              damageCache.set(monster, monster.personalDamage);
+              damageModel.addSample(sk.stamina > 0 ? (Number(r.damageDelta || 0) / sk.stamina) : Number(r.damageDelta || 0));
+            } else if (isRetryableAttackFailure(r)) {
+              await delay(ATTACK_GAP_MS);
+              processedHits -= 1;
+              i -= 1;
+              results.pop();
+              continue;
+            }
+          } catch (e) {
+            results.push({
+              id: `${monster.dgmid || monster.name} • ${sk.name} (${sk.stamina})`,
+              ok: false,
+              html: `Join: Failed<br>Attack: ${escapeHtml(e?.message || 'Server error')}`
+            });
+          }
+
+          await delay(ATTACK_GAP_MS);
+        }
+      }
+
+      openAttackModal(board, {
+        processed: results.length,
+        success: okCount,
+        failed: results.length - okCount,
+        results
+      });
+
+      setAttackBusy(false);
+      controls.selectedCount.textContent = `Selected: ${selected.size}`;
+      updateStratRunLabel();
+      render();
+    }
+
     board.querySelectorAll('[data-role="quick-attack"]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const stam = parseInt(btn.getAttribute('data-stam') || '1', 10) || 1;
-        await runQuickAttack(stam, { useLimit: false });
+        const sid = parseInt(btn.getAttribute('data-skill-id') || '0', 10) || 0;
+        await runQuickAttack(sid, stam);
       });
     });
 
     board.querySelector('[data-role="attack-strat-run"]')?.addEventListener('click', async () => {
-      const s = readStrat();
-      await runQuickAttack(s.stam, { useLimit: true });
+      await runStrategyAttack();
     });
 
     const overlay = board.querySelector('[data-role="strat-overlay"]');
     const closeBtn = board.querySelector('[data-role="strat-close"]');
     const useLimitEl = board.querySelector('[data-role="strat-use-limit"]');
     const limitEl = board.querySelector('[data-role="strat-limit"]');
+    const chipsEl = board.querySelector('[data-role="strategy-chips"]');
+    const totalEl = board.querySelector('[data-role="total-stam-cost"]');
+
+    function renderStrategyBuilder() {
+      const order = readStrategyOrder();
+      const lim = readLimitConfig();
+
+      if (useLimitEl instanceof HTMLInputElement) useLimitEl.checked = !!lim.useLimit;
+      if (limitEl instanceof HTMLInputElement) {
+        limitEl.value = String(lim.limit || 0);
+        limitEl.disabled = !lim.useLimit;
+      }
+
+      const total = getStrategyTotalStam(order);
+      if (totalEl) totalEl.textContent = String(total);
+
+      if (chipsEl) {
+        chipsEl.innerHTML = order.length
+          ? order.map((id, idx) => {
+              const sk = getSkillById(id);
+              const label = sk ? `${sk.name} (${sk.stamina})` : `Skill ${id}`;
+              const upDis = idx === 0 ? 'is-disabled' : '';
+              const dnDis = idx === order.length - 1 ? 'is-disabled' : '';
+              return `
+                <div class="attack-strat-chip" data-idx="${idx}">
+                  <span class="attack-strat-chip-label">${escapeHtml(label)}</span>
+                  <div class="attack-strat-chip-controls">
+                    <button type="button" class="attack-strat-chip-btn attack-strat-chip-up ${upDis}" data-role="chip-up" title="Move up">↑</button>
+                    <button type="button" class="attack-strat-chip-btn attack-strat-chip-down ${dnDis}" data-role="chip-down" title="Move down">↓</button>
+                    <button type="button" class="attack-strat-chip-btn attack-strat-chip-remove" data-role="chip-remove" title="Remove">✕</button>
+                  </div>
+                </div>
+              `;
+            }).join('')
+          : `<div class="attack-strat-chip" style="opacity:.65;"><span class="attack-strat-chip-label">Pick attacks above to build a strategy.</span></div>`;
+      }
+
+      updateStratRunLabel();
+    }
 
     function openStratOverlay() {
       if (!overlay) return;
-      const s = readStrat();
-      if (useLimitEl instanceof HTMLInputElement) useLimitEl.checked = !!s.useLimit;
-      if (limitEl instanceof HTMLInputElement) limitEl.value = String(s.limit);
       overlay.style.display = 'flex';
-      updateStratRunLabel();
+      renderStrategyBuilder();
     }
 
     function closeStratOverlay() {
@@ -3682,25 +3852,62 @@
       if (e.target === overlay) closeStratOverlay();
     });
 
-    board.querySelectorAll('[data-role="strat-stam"]').forEach((btn) => {
+    board.querySelectorAll('[data-role="skill-pick"]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const next = readStrat();
-        next.stam = parseInt(btn.getAttribute('data-stam') || '50', 10) || 50;
-        writeStrat(next);
-        updateStratRunLabel();
+        const order = readStrategyOrder();
+        const sid = parseInt(btn.getAttribute('data-skill-id') || '0', 10);
+        if (!Number.isFinite(sid)) return;
+        order.push(sid);
+        writeStrategyOrder(order);
+        renderStrategyBuilder();
       });
     });
 
-    function persistStrat() {
-      const next = readStrat();
+    chipsEl?.addEventListener('click', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const chip = t.closest('.attack-strat-chip');
+      if (!chip) return;
+      const idx = parseInt(chip.getAttribute('data-idx') || '-1', 10);
+      if (!Number.isFinite(idx) || idx < 0) return;
+
+      const order = readStrategyOrder();
+      if (idx >= order.length) return;
+
+      if (t.matches('[data-role="chip-remove"]')) {
+        order.splice(idx, 1);
+        writeStrategyOrder(order);
+        renderStrategyBuilder();
+        return;
+      }
+      if (t.matches('[data-role="chip-up"]') && idx > 0) {
+        const tmp = order[idx - 1];
+        order[idx - 1] = order[idx];
+        order[idx] = tmp;
+        writeStrategyOrder(order);
+        renderStrategyBuilder();
+        return;
+      }
+      if (t.matches('[data-role="chip-down"]') && idx < order.length - 1) {
+        const tmp = order[idx + 1];
+        order[idx + 1] = order[idx];
+        order[idx] = tmp;
+        writeStrategyOrder(order);
+        renderStrategyBuilder();
+        return;
+      }
+    });
+
+    function persistLimit() {
+      const next = readLimitConfig();
       if (useLimitEl instanceof HTMLInputElement) next.useLimit = !!useLimitEl.checked;
       if (limitEl instanceof HTMLInputElement) next.limit = Math.max(0, parseInt(limitEl.value || '0', 10) || 0);
-      writeStrat(next);
-      updateStratRunLabel();
+      writeLimitConfig(next);
+      renderStrategyBuilder();
     }
 
-    useLimitEl?.addEventListener('change', persistStrat);
-    limitEl?.addEventListener('input', persistStrat);
+    useLimitEl?.addEventListener('change', persistLimit);
+    limitEl?.addEventListener('input', persistLimit);
 
     updateStratRunLabel();
 
@@ -3774,7 +3981,7 @@
     `;
   }
 
-  async function quickJoinAndAttack(monster, staminaCost) {
+  async function quickJoinAndAttack(monster, skillId, staminaCost) {
     const joinPayload = {
       dgmid: monster.dgmid,
       instance_id: monster.instanceId
@@ -3790,7 +3997,7 @@
     const attackResult = await postForm('damage.php', {
       dgmid: monster.dgmid,
       instance_id: monster.instanceId,
-      skill_id: '0',
+      skill_id: String(skillId ?? 0),
       stamina_cost: String(staminaCost)
     });
 
@@ -4330,6 +4537,36 @@
         border: 1px solid #2d3154;
         background: #2d3154;
         color: #e6e8ff;
+      }
+      .tm-sbw-board .attack-strat-chips{ display:flex; flex-direction:column; gap:6px; }
+      .tm-sbw-board .attack-strat-chip{
+        display:flex;
+        align-items:center;
+        background:#2d3154;
+        padding:6px 10px;
+        border-radius:10px;
+        font-size:12px;
+        width:100%;
+        box-sizing:border-box;
+      }
+      .tm-sbw-board .attack-strat-chip-label{ flex:1; text-transform:capitalize; }
+      .tm-sbw-board .attack-strat-chip-controls{ display:flex; align-items:center; gap:5px; }
+      .tm-sbw-board .attack-strat-chip-btn{
+        background:none;
+        border:none;
+        cursor:pointer;
+        color:#9aa0be;
+        font-size:12px;
+        padding:5px 12px;
+        background-color:#1f2233;
+        border-radius:8px;
+      }
+      .tm-sbw-board .attack-strat-chip-btn.is-disabled{ opacity:.3; pointer-events:none; }
+      .tm-sbw-board .attack-strat-chip-remove{ color:#ef4444; }
+      .tm-sbw-board .total-stam-cost{
+        color:#FFD369;
+        font-weight:700;
+        text-shadow:0 0 6px rgba(255, 211, 105, .6);
       }
       .tm-sbw-qol-top {
         display: flex;
