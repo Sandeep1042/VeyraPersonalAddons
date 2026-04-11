@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra Graveyard Multi-Loot
 // @namespace    https://demonicscans.org/
-// @version      0.3.2
+// @version      0.3.9
 // @description  Adds checkbox multi-select + "Loot selected" to graveyard (dead mobs) on wave pages, plus a loot summary modal.
 // @match        https://demonicscans.org/active_wave.php*
 // @homepageURL  https://github.com/nobody65321/VeyraPersonalAddons
@@ -395,6 +395,69 @@
     }
   }
 
+  function findReferenceMultiTargetButton() {
+    const selectors = [
+      '#waveQolPanel .btnQuickJoinAttack:not([disabled])',
+      '#waveQolPanel .qol-attacks .btn:not([disabled])',
+      '#waveQolPanel .btn:not([disabled])',
+      '.btnQuickJoinAttack:not([disabled])',
+      '.qol-attacks .btn:not([disabled])',
+      'button.btn:not([disabled])',
+      'a.btn:not([disabled])'
+    ];
+
+    for (const sel of selectors) {
+      const els = Array.from(document.querySelectorAll(sel));
+      for (const el of els) {
+        if (!(el instanceof HTMLElement)) continue;
+        if (el.offsetParent === null) continue;
+        return el;
+      }
+    }
+    return null;
+  }
+
+  function applyButtonThemeFromReference(controlsEl) {
+    if (!controlsEl) return;
+    const ref = findReferenceMultiTargetButton();
+    if (!ref) return;
+
+    const cs = window.getComputedStyle(ref);
+    const bg = cs.backgroundImage && cs.backgroundImage !== 'none' ? cs.backgroundImage : cs.backgroundColor;
+    const border = `${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor}`;
+    const padding = `${cs.paddingTop} ${cs.paddingRight} ${cs.paddingBottom} ${cs.paddingLeft}`;
+
+    // Spacing: try to match the Multi Target row spacing (gap).
+    // NOTE: use single values (row/col) so we can safely reuse them in CSS without calc() issues.
+    const parent = ref.closest('.qol-attacks') || ref.parentElement;
+    if (parent) {
+      const ps = window.getComputedStyle(parent);
+      const rg = ps.rowGap && ps.rowGap !== 'normal' ? ps.rowGap : '';
+      const cg = ps.columnGap && ps.columnGap !== 'normal' ? ps.columnGap : '';
+      if (rg) controlsEl.style.setProperty('--tm-controls-row-gap', rg);
+      if (cg) controlsEl.style.setProperty('--tm-controls-col-gap', cg);
+      if (cg) controlsEl.style.setProperty('--tm-controls-gap', cg);
+      else if (rg) controlsEl.style.setProperty('--tm-controls-gap', rg);
+    }
+
+    controlsEl.style.setProperty('--tm-btn-background', bg);
+    controlsEl.style.setProperty('--tm-btn-color', cs.color);
+    controlsEl.style.setProperty('--tm-btn-border', border);
+    if (cs.boxShadow && cs.boxShadow !== 'none') controlsEl.style.setProperty('--tm-btn-shadow', cs.boxShadow);
+
+    // Copy font family so it feels native, but keep sizing consistent (Wave 3 sizing).
+    if (cs.fontFamily) controlsEl.style.setProperty('--tm-btn-font-family', cs.fontFamily);
+    if (cs.letterSpacing) controlsEl.style.setProperty('--tm-btn-letter-spacing', cs.letterSpacing);
+    if (cs.textTransform) controlsEl.style.setProperty('--tm-btn-text-transform', cs.textTransform);
+
+    // Reference text metrics (used for our non-button text so it matches Multi Target).
+    if (cs.fontFamily) controlsEl.style.setProperty('--tm-ref-font-family', cs.fontFamily);
+    if (cs.fontSize) controlsEl.style.setProperty('--tm-ref-font-size', cs.fontSize);
+    if (cs.fontWeight) controlsEl.style.setProperty('--tm-ref-font-weight', cs.fontWeight);
+    if (cs.letterSpacing) controlsEl.style.setProperty('--tm-ref-letter-spacing', cs.letterSpacing);
+    if (cs.textTransform) controlsEl.style.setProperty('--tm-ref-text-transform', cs.textTransform);
+  }
+
   function getDeadCardsContainer() {
     const monsterContainer = document.querySelector('.monster-container');
     if (monsterContainer) return monsterContainer;
@@ -584,10 +647,89 @@
         background: #11131b !important;
         color: #e6e9ff !important;
         border: 1px solid rgba(255,255,255,0.14) !important;
+        font-family: var(--tm-btn-font-family) !important;
+        font-size: var(--tm-btn-font-size) !important;
+        font-weight: var(--tm-btn-font-weight) !important;
       }
       #tmLootControls select option{
         background: #11131b !important;
         color: #e6e9ff !important;
+      }
+
+      /* Buttons: match the wave's "Multi Target" look via CSS vars (set from an existing button) */
+      #tmLootControls{
+        --tm-btn-background: #333;
+        --tm-btn-color: #fff;
+        --tm-btn-border: 1px solid #2b2d44;
+        --tm-btn-shadow: 0 6px 18px rgba(0,0,0,.6);
+
+        /* Keep Wave 3 sizing */
+        --tm-btn-radius: 10px;
+        --tm-btn-padding: 10px 12px;
+        --tm-btn-font-family: inherit;
+        --tm-btn-font-size: 13px;
+        --tm-btn-font-weight: 800;
+        --tm-btn-letter-spacing: normal;
+        --tm-btn-text-transform: none;
+        --tm-btn-min-height: 36px;
+        --tm-controls-gap: 10px;
+        --tm-controls-row-gap: 10px;
+        --tm-controls-col-gap: 10px;
+
+        --tm-ref-font-family: var(--tm-btn-font-family);
+        --tm-ref-font-size: 13px;
+        --tm-ref-font-weight: 800;
+        --tm-ref-letter-spacing: var(--tm-btn-letter-spacing);
+        --tm-ref-text-transform: none;
+      }
+
+      /* Spacing: use margins (more reliable than flex gap across weird CSS stacks) */
+      #tmLootControls{ gap: 0 !important; }
+      #tmLootControls > *{
+        margin-right: var(--tm-controls-col-gap) !important;
+        margin-bottom: var(--tm-controls-row-gap) !important;
+      }
+
+      #tmLootControls .btn{
+        border-radius: var(--tm-btn-radius) !important;
+        padding: var(--tm-btn-padding) !important;
+        font-family: var(--tm-btn-font-family) !important;
+        font-size: var(--tm-btn-font-size) !important;
+        font-weight: var(--tm-btn-font-weight) !important;
+        letter-spacing: var(--tm-btn-letter-spacing) !important;
+        text-transform: var(--tm-btn-text-transform) !important;
+        line-height: 1.2 !important;
+        min-height: var(--tm-btn-min-height) !important;
+        white-space: nowrap !important;
+
+        background: var(--tm-btn-background) !important;
+        border: var(--tm-btn-border) !important;
+        color: var(--tm-btn-color) !important;
+        box-shadow: var(--tm-btn-shadow) !important;
+        cursor: pointer !important;
+        transition: filter .12s ease, transform .06s ease !important;
+      }
+      #tmLootControls .btn:hover{ filter: brightness(1.06) !important; transform: translateY(-1px) !important; }
+      #tmLootControls .btn:active{ filter: brightness(0.98) !important; transform: translateY(0) !important; }
+      #tmLootControls .btn:disabled{ opacity:.6 !important; cursor:not-allowed !important; transform:none !important; }
+
+      /* Loot button stays green */
+      #tmLootControls .btn.tm-loot-btn{
+        background: linear-gradient(180deg, #1f9d63, #158a56) !important;
+        border: 1px solid rgba(31,157,99,0.95) !important;
+        color: #ffffff !important;
+        box-shadow: 0 10px 22px rgba(31,157,99,.22), 0 0 0 2px rgba(0,0,0,.18) inset !important;
+      }
+
+      /* Text spacing/fonts: match Multi Target */
+      #tmLootControls #tmLootTypeBadge,
+      #tmLootControls #tmLootSelectedCount{
+        font-family: var(--tm-ref-font-family) !important;
+        font-size: var(--tm-ref-font-size) !important;
+        font-weight: var(--tm-ref-font-weight) !important;
+        letter-spacing: var(--tm-ref-letter-spacing) !important;
+        text-transform: var(--tm-ref-text-transform) !important;
+        line-height: 1.2 !important;
       }
 
       #${MODAL_ID}{
@@ -929,10 +1071,12 @@
 
     const wrap = document.createElement('div');
     wrap.id = 'tmLootControls';
-    wrap.style.cssText = 'display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex-basis:100%;margin-top:10px;';
+    wrap.style.cssText =
+      'display:flex;gap:var(--tm-controls-gap,10px);align-items:center;flex-wrap:wrap;flex-basis:100%;margin-top:10px;';
 
     const typeWrap = document.createElement('div');
-    typeWrap.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
+    typeWrap.className = 'tm-type-wrap';
+    typeWrap.style.cssText = 'display:flex;gap:var(--tm-controls-gap,8px);align-items:center;flex-wrap:wrap;';
 
     const typeLabel = document.createElement('span');
     typeLabel.style.cssText = 'color:#c7cbdf;font-size:12px;';
@@ -949,7 +1093,7 @@
 
     const badge = document.createElement('span');
     badge.id = 'tmLootTypeBadge';
-    badge.style.cssText = 'color:#9aa0be;font-size:12px;';
+    badge.style.cssText = 'color:#9aa0be;';
     badge.textContent = 'types: ...';
     typeWrap.appendChild(badge);
 
@@ -965,7 +1109,8 @@
     btnGoToType.disabled = true;
 
     const iconSizeWrap = document.createElement('div');
-    iconSizeWrap.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
+    iconSizeWrap.className = 'tm-size-wrap';
+    iconSizeWrap.style.cssText = 'display:flex;gap:var(--tm-controls-gap,8px);align-items:center;flex-wrap:wrap;';
 
     const iconSizeLabel = document.createElement('span');
     iconSizeLabel.style.cssText = 'color:#c7cbdf;font-size:12px;';
@@ -1001,7 +1146,8 @@
     autoLoadWrap.appendChild(autoLoadTxt);
 
     const cardSizeWrap = document.createElement('div');
-    cardSizeWrap.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
+    cardSizeWrap.className = 'tm-size-wrap';
+    cardSizeWrap.style.cssText = 'display:flex;gap:var(--tm-controls-gap,8px);align-items:center;flex-wrap:wrap;';
 
     const cardSizeLabel = document.createElement('span');
     cardSizeLabel.style.cssText = 'color:#c7cbdf;font-size:12px;';
@@ -1030,11 +1176,12 @@
     btnLoot.type = 'button';
     btnLoot.className = 'btn';
     btnLoot.textContent = '💰 Loot selected';
-    btnLoot.style.cssText = 'background:#1a9d73;border-color:#1a9d73;';
+    // Let the page/theme style this button; we only enforce sizing via CSS.
+    btnLoot.classList.add('tm-loot-btn');
 
     const count = document.createElement('span');
     count.id = 'tmLootSelectedCount';
-    count.style.cssText = 'color:#9aa0be;font-size:12px;';
+    count.style.cssText = 'color:#9aa0be;';
     count.textContent = 'Selected: 0';
 
     wrap.appendChild(typeWrap);
@@ -1052,6 +1199,7 @@
     // Prefer inserting ABOVE the monster grid if we're anchoring to the container.
     const insertBefore = containerForInsert && anchor === containerForInsert;
     anchor.parentElement.insertBefore(wrap, insertBefore ? anchor : anchor.nextSibling);
+    applyButtonThemeFromReference(wrap);
 
     btnSelVisible.addEventListener('click', () => {
       ensureLootCheckboxes();
@@ -1265,6 +1413,7 @@
   function wireObservers() {
     const run = debounce(() => {
       ensureControls();
+      applyButtonThemeFromReference(document.getElementById('tmLootControls'));
       if (hasGraveyard()) {
         const controls = document.getElementById('tmLootControls');
         if (controls) controls.style.display = '';
