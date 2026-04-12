@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.12
+// @version      0.3.15
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Shadowbridge monster board, Solo PvP bot.
 // @match        *://demonicscans.org/*
 // @match        *://www.demonicscans.org/*
@@ -29,11 +29,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.12',
+      version: '0.3.15',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.12'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.12');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.15'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.15');
   } catch (e) {
     // ignore
   }
@@ -43,10 +43,33 @@
 (function(){
   'use strict';
 
-  const VERSION = '0.3.12';
+  const VERSION = '0.3.15';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
   const CHANGELOG = {
+    '0.3.15': {
+      date: '2026-04-12',
+      changes: [
+        'AIO error toast now only triggers for actual AIO errors (ignores other userscripts/site errors).',
+        'D1 strategy builder: internal stamina total helper no longer depends on a missing global name.',
+        'Solo PvP bot no longer prints “Unsupported page…” even if something calls it outside PvP.'
+      ]
+    },
+    '0.3.14': {
+      date: '2026-04-11',
+      changes: [
+        'Fixed D1 strategy builder again (missing helper + removed legacy references).',
+        'Solo PvP bot no longer logs anything on non-solo-PvP pages in the AIO.',
+        'Added a small CSS safeguard to reduce excess empty space at the bottom of the D1 map page.'
+      ]
+    },
+    '0.3.13': {
+      date: '2026-04-11',
+      changes: [
+        'Fixed D1 strategy builder crash (missing getStrategyTotalStam).',
+        'Solo PvP bot now stays completely silent on non-solo-PvP pages when using the AIO.'
+      ]
+    },
     '0.3.12': {
       date: '2026-04-11',
       changes: [
@@ -329,8 +352,23 @@
   'use strict';
   const errors = [];
 
+  function looksLikeFromAio(text){
+    const t = String(text || '');
+    if (!t) return false;
+    // Tampermonkey stacks typically contain: userscript.html?name=Veyra-HUD-All-in-One.user.js&id=...
+    // Keep this narrow so we don't toast for other userscripts/site errors.
+    return (
+      t.includes('Veyra-HUD-All-in-One') ||
+      t.includes('VeyraHUD.user.js') ||
+      t.includes('VeyraHUD AIO')
+    );
+  }
+
   function onError(ev){
     try {
+      const file = String(ev && ev.filename || '');
+      const stack = String(ev && ev.error && ev.error.stack || '');
+      if (!looksLikeFromAio(file || stack || '')) return;
       errors.push({
         kind: 'error',
         message: ev && ev.message,
@@ -343,7 +381,12 @@
 
   function onRejection(ev){
     try {
-      errors.push({ kind: 'rejection', reason: String(ev && ev.reason || '') });
+      const reason = ev && ev.reason;
+      const stack = (reason && typeof reason === 'object' && reason.stack) ? String(reason.stack) : '';
+      const msg = (reason && typeof reason === 'object' && reason.message) ? String(reason.message) : String(reason || '');
+      const fingerprint = stack || msg;
+      if (fingerprint && !looksLikeFromAio(fingerprint)) return;
+      errors.push({ kind: 'rejection', reason: msg, stack });
     } catch (e) {}
   }
 
@@ -2814,6 +2857,7 @@
     }
 
     injectStyles();
+    try { document.body.classList.add('tm-sbw-map-page'); } catch {}
     init().catch((error) => {
       console.error('[TM Shadowbridge]', error);
       renderError(`Failed to load monster list: ${error.message || error}`);
@@ -3556,6 +3600,13 @@
       try { window.sessionStorage.setItem(STRAT_LIMIT_KEY, String(next.limit ?? 0)); } catch {}
     }
 
+    function calcStrategyTotalStam(order) {
+      return (order || []).reduce((sum, id) => {
+        const sk = getSkillById(id);
+        return sum + (sk ? sk.stamina : 0);
+      }, 0);
+    }
+
     function fmtShort(n) {
       const num = Number(n || 0);
       if (!Number.isFinite(num)) return '0';
@@ -3569,9 +3620,11 @@
       const btn = board.querySelector('[data-role="attack-strat-run"]');
       if (!btn) return;
       const order = readStrategyOrder();
-      const total = (order || []).reduce((sum, id) => sum + (getSkillById(id)?.stamina || 0), 0);
+      const total = calcStrategyTotalStam(order);
       const lim = readLimitConfig();
       btn.disabled = order.length === 0;
+      btn.textContent = `🧠 Quick Join & Attack (${total || 0})` + (lim.useLimit && lim.limit > 0 ? ` (limit ${fmtShort(lim.limit)})` : '');
+      return;
       btn.textContent = `🧠 Quick Join & Attack (${total || 0})` + (lim.useLimit && lim.limit > 0 ? ` (limit ${fmtShort(lim.limit)})` : '');
       return;
       const s = readStrat();
@@ -3679,7 +3732,7 @@
 
     async function runStrategyAttack() {
       const order = readStrategyOrder();
-      const totalStam = getStrategyTotalStam(order);
+      const totalStam = calcStrategyTotalStam(order);
       const lim = readLimitConfig();
 
       const candidates = allMonsters.filter((monster) =>
@@ -3807,7 +3860,7 @@
         limitEl.disabled = !lim.useLimit;
       }
 
-      const total = getStrategyTotalStam(order);
+      const total = calcStrategyTotalStam(order);
       if (totalEl) totalEl.textContent = String(total);
 
       if (chipsEl) {
@@ -4371,6 +4424,19 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
+      body.tm-sbw-map-page{
+        /* Prevent weird extra whitespace at the bottom on some layouts */
+        min-height: 0 !important;
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
+      }
+      body.tm-sbw-map-page .panel{
+        min-height: 0 !important;
+      }
+      body.tm-sbw-map-page .wrap{
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
+      }
       .tm-sbw-board {
         margin-top: 14px;
       }
@@ -5287,6 +5353,13 @@
 (() => {
   'use strict';
 
+  // When merged into the All-in-One script, this file still runs on every page.
+  // Hard-gate it so it only does anything on solo PvP pages (no console noise elsewhere).
+  const path = String(window.location.pathname || '');
+  const IS_LOBBY = /\/pvp\.php$/i.test(path);
+  const IS_BATTLE = /\/pvp_battle\.php$/i.test(path);
+  if (!IS_LOBBY && !IS_BATTLE) return;
+
   const STORAGE_KEY = 'tm_pvp_bot_active_v1';
   const LAST_ACTION_KEY = 'tm_pvp_bot_last_action_at_v1';
   const ACTION_GAP_MS = 1500;
@@ -5319,11 +5392,11 @@
   };
 
   function isLobbyPage() {
-    return /\/pvp\.php$/i.test(window.location.pathname);
+    return IS_LOBBY;
   }
 
   function isBattlePage() {
-    return /\/pvp_battle\.php$/i.test(window.location.pathname);
+    return IS_BATTLE;
   }
 
   function ensureStyles() {
@@ -5530,8 +5603,7 @@
       await handleBattle();
       return;
     }
-
-    setStatus('Unsupported page for Solo PvP bot.');
+    // Should never happen due to the hard-gate at the top, but stay silent if it does.
     queueNext(1500);
   };
 
