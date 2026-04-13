@@ -3,6 +3,7 @@
 // @namespace    https://demonicscans.org/
 // @version      0.3.15
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Shadowbridge monster board, Solo PvP bot.
+// @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
 // @match        *://www.demonicscans.org/*
 // @homepageURL  https://github.com/nobody65321/VeyraPersonalAddons
