@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.15
+// @version      0.3.17
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Shadowbridge monster board, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -30,11 +30,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.15',
+      version: '0.3.17',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.15'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.15');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.17'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.17');
   } catch (e) {
     // ignore
   }
@@ -44,10 +44,24 @@
 (function(){
   'use strict';
 
-  const VERSION = '0.3.15';
+  const VERSION = '0.3.17';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
   const CHANGELOG = {
+    '0.3.17': {
+      date: '2026-04-13',
+      changes: [
+        'Graveyard: Select all visible dead now respects Select qty if you typed a number.',
+        'Emberfall map: Emberfall Helper HUD button now opens the helper inside the map modal.'
+      ]
+    },
+    '0.3.16': {
+      date: '2026-04-13',
+      changes: [
+        'Graveyard: added Select qty box to auto-check N visible dead monsters for the chosen type.',
+        'Emberfall map: moved Emberfall Helper into a top HUD button (between Menu/Overview) and into the map modal UI.'
+      ]
+    },
     '0.3.15': {
       date: '2026-04-12',
       changes: [
@@ -855,6 +869,8 @@
   }
 
   function renderPanel() {
+    ensureHudButton();
+
     if (document.getElementById('tmEmberfallHelperPanel')) {
       const toggle = document.getElementById('tmEmberfallHelperToggle');
       if (toggle) {
@@ -868,18 +884,9 @@
 
     const panel = document.createElement('div');
     panel.id = 'tmEmberfallHelperPanel';
+    panel.className = 'panel';
+    panel.setAttribute('data-map-section', 'emberfall_helper');
     Object.assign(panel.style, {
-      position: 'fixed',
-      top: '92px',
-      right: '10px',
-      zIndex: '2147483647',
-      width: '360px',
-      maxWidth: '92vw',
-      padding: '10px',
-      borderRadius: '12px',
-      background: 'rgba(14,18,26,0.94)',
-      border: '1px solid rgba(255,211,105,0.25)',
-      boxShadow: '0 12px 28px rgba(0,0,0,0.45)',
       color: '#e6e9ff',
       fontSize: '12px',
       fontFamily: 'Arial, sans-serif',
@@ -985,12 +992,63 @@
 
     panel.appendChild(header);
     panel.appendChild(body);
-    document.body.appendChild(panel);
+
+    const host = document.getElementById('mapHiddenPanels') || document.body;
+    host.appendChild(panel);
 
     // Auto-capture quests every time you open/refresh the Emberfall map.
     // (Quest Journal can render late, so retry briefly.)
     autoCaptureQuestsWithRetry();
     refresh();
+  }
+
+  function ensureHudButton() {
+    const hud = document.querySelector('.eventMapHud');
+    if (!hud) return;
+    if (document.getElementById('tmEmberfallHelperHudBtn')) return;
+
+    const overviewBtn = hud.querySelector('[data-open-section="overview"]');
+    const menuBtn = document.getElementById('mapMenuBtn');
+    if (!overviewBtn || !menuBtn) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn';
+    btn.id = 'tmEmberfallHelperHudBtn';
+    btn.textContent = 'Emberfall Helper';
+    btn.setAttribute('data-open-section', 'emberfall_helper');
+
+    btn.addEventListener('click', () => {
+      // Ensure panel exists, then open it inside the map's existing modal if present.
+      renderPanel();
+      if (openInMapModal()) return;
+
+      // Fallback: if we can't find the map modal elements, just scroll to the panel host.
+      const p = document.getElementById('tmEmberfallHelperPanel');
+      if (p && typeof p.scrollIntoView === 'function') p.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+
+    // Insert between Menu and Overview.
+    hud.insertBefore(btn, overviewBtn);
+  }
+
+  function openInMapModal() {
+    const overlay = document.getElementById('mapModalOverlay');
+    const modalBody = document.getElementById('mapModalBody');
+    const modalTitle = document.getElementById('mapModalTitle');
+    if (!overlay || !modalBody || !modalTitle) return false;
+
+    const panel = document.getElementById('tmEmberfallHelperPanel');
+    if (!panel) return false;
+
+    modalTitle.textContent = 'Emberfall Helper';
+    modalBody.innerHTML = '';
+    modalBody.appendChild(panel);
+
+    overlay.style.display = 'flex';
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    return true;
   }
 
   function setStatus(text) {
@@ -2506,10 +2564,31 @@
     autoLoadWrap.appendChild(autoLoadCb);
     autoLoadWrap.appendChild(autoLoadTxt);
 
+    const qtyWrap = document.createElement('label');
+    qtyWrap.style.cssText = 'display:inline-flex;gap:8px;align-items:center;color:#c7cbdf;font-size:12px;';
+    qtyWrap.title = 'Type a number to auto-check that many visible dead monsters (based on the Show filter).';
+
+    const qtyLabel = document.createElement('span');
+    qtyLabel.textContent = 'Select qty:';
+
+    const qtyInput = document.createElement('input');
+    qtyInput.id = 'tmLootSelectQty';
+    qtyInput.type = 'number';
+    qtyInput.inputMode = 'numeric';
+    qtyInput.min = '0';
+    qtyInput.step = '1';
+    qtyInput.placeholder = '10';
+    qtyInput.style.cssText =
+      'width:72px;padding:6px 8px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);' +
+      'background:#11131b;color:#e6e9ff;font-size:12px;';
+
+    qtyWrap.appendChild(qtyLabel);
+    qtyWrap.appendChild(qtyInput);
+
     const btnSelVisible = document.createElement('button');
     btnSelVisible.type = 'button';
     btnSelVisible.className = 'btn';
-    btnSelVisible.textContent = 'Select visible dead';
+    btnSelVisible.textContent = 'Select all visible dead';
 
     const btnClear = document.createElement('button');
     btnClear.type = 'button';
@@ -2533,6 +2612,7 @@
     wrap.appendChild(btnGoToType);
     wrap.appendChild(btnLoadAllDead);
     wrap.appendChild(autoLoadWrap);
+    wrap.appendChild(qtyWrap);
     wrap.appendChild(btnSelVisible);
     wrap.appendChild(btnClear);
     wrap.appendChild(btnLoot);
@@ -2545,6 +2625,11 @@
 
     btnSelVisible.addEventListener('click', () => {
       ensureLootCheckboxes();
+      const rawQty = String(qtyInput.value || '').trim();
+      if (rawQty !== '') {
+        applyQtySelection();
+        return;
+      }
       const cards = getVisibleCards(getEligibleDeadCards());
       const chosen = normName(document.getElementById('tmLootTypeFilter')?.value || '').toLowerCase();
       if (!cards.length && chosen) {
@@ -2565,7 +2650,40 @@
         if (cb) cb.checked = true;
       }
       updateSelectedCount();
-      setStatus(`Selected ${getSelectedLootIds().length} visible dead monsters.`);
+      setStatus(`Selected ${getSelectedLootIds().length} visible dead monsters (all).`);
+    });
+
+    function applyQtySelection() {
+      ensureLootCheckboxes();
+
+      const raw = String(qtyInput.value || '').trim();
+      if (!raw) return;
+
+      const want = Math.max(0, parseInt(raw, 10) || 0);
+      const cards = getVisibleCards(getEligibleDeadCards());
+      const ids = cards
+        .map((card) => parseInt(card.getAttribute('data-monster-id') || '0', 10))
+        .filter((id) => !!id);
+
+      const n = Math.min(want, ids.length);
+      for (let i = 0; i < ids.length; i++) {
+        const cb = document.querySelector(`input.tm-loot-select[data-monster-id="${ids[i]}"]`);
+        if (cb) cb.checked = i < n;
+      }
+
+      updateSelectedCount();
+      const chosen = normName(document.getElementById('tmLootTypeFilter')?.value || '').toLowerCase();
+      const suffix = chosen ? ` (${chosen})` : '';
+      setStatus(`Selected ${n}/${ids.length} visible dead monsters${suffix}.`);
+    }
+
+    qtyInput.addEventListener('input', () => {
+      // Only apply when a real number is typed; empty input should not force-clear selection.
+      if (String(qtyInput.value || '').trim() === '') return;
+      applyQtySelection();
+    });
+    qtyInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') applyQtySelection();
     });
 
     btnClear.addEventListener('click', () => {
