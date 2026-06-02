@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.20
+// @version      0.3.20.3
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -6848,12 +6848,13 @@
           overflow: visible !important;
         }
         .tm-sbw-cube-jump {
-          position: static;
-          width: auto;
-          max-width: 100%;
+          position: sticky;
+          top: 4px;
+          width: fit-content;
+          max-width: calc(100vw - 18px);
           gap: 8px;
           padding: 9px;
-          margin: 12px 0 0;
+          margin: 12px auto 0;
           transform: none;
         }
         .tm-sbw-cube-jump a {
