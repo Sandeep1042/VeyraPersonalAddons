@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.18
-// @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Shadowbridge monster board, Solo PvP bot.
+// @version      0.3.19
+// @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Shadowbridge monster board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
 // @match        *://www.demonicscans.org/*
@@ -10,7 +10,7 @@
 // @updateURL    https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.user.js
 // @downloadURL  https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.user.js
 // @grant        none
-// @run-at       document-idle
+// @run-at       document-start
 // ==/UserScript==
 
 /*
@@ -18,6 +18,7 @@
   - Event.user.js
   - Graveyard.user.js
   - shadowbridge-warrens-monsters.user.js
+  - cube-intro-skipper.user.js
   - demonicscans-pvp.user.js
 
   Intentionally excluded:
@@ -427,6 +428,249 @@
       window.setTimeout(() => toast.remove(), 9000);
     } catch (e) {}
   }, 6000);
+})();
+
+
+// ============================================================
+// Module: Cube Intro Skipper (cube-intro-skipper.user.js)
+// ============================================================
+
+(function () {
+  'use strict';
+
+  const path = String(window.location.pathname || '');
+  const IS_CUBE_PAGE = /\/guild_dungeon_(?:enter|cube)\.php$/i.test(path);
+  if (!IS_CUBE_PAGE) return;
+
+  const SETTING_KEY = 'tm_cube_auto_skip_intro_v3';
+  const GLOBAL_SEEN_KEY = 'tm_cube_intro_seen_globally_v1';
+  const STYLE_ID = 'tmCubeIntroSkipperStyles';
+  const RELOAD_FLAG_PREFIX = 'tm_cube_intro_pre_dismissed_';
+
+  let dismissing = false;
+  let observer = null;
+
+  function readEnabled() {
+    try {
+      const raw = window.localStorage.getItem(SETTING_KEY);
+      return raw === null ? true : raw === 'true';
+    } catch (_error) {
+      return true;
+    }
+  }
+
+  function writeEnabled(value) {
+    try {
+      window.localStorage.setItem(SETTING_KEY, value ? 'true' : 'false');
+    } catch (_error) {
+      // ignore storage failures
+    }
+  }
+
+  function markIntroSeenGlobally() {
+    try {
+      window.localStorage.setItem(GLOBAL_SEEN_KEY, '1');
+    } catch (_error) {
+      // ignore storage failures
+    }
+  }
+
+  function ensureStyles() {
+    if (!readEnabled() || document.getElementById(STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `
+      #introOverlay.isOpen,
+      #briefOverlay.isOpen {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function syncStyles() {
+    const style = document.getElementById(STYLE_ID);
+    if (readEnabled()) ensureStyles();
+    else if (style) style.remove();
+  }
+
+  function getInstanceId() {
+    const fromGlobal = Number(window.INSTANCE_ID || 0);
+    if (Number.isFinite(fromGlobal) && fromGlobal > 0) return String(fromGlobal);
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl = params.get('instance_id') || params.get('id');
+      const n = Number(fromUrl || 0);
+      if (Number.isFinite(n) && n > 0) return String(n);
+    } catch (_error) {
+      // ignore bad URL parsing
+    }
+
+    const refresh = document.querySelector('button[onclick*="guild_dungeon_enter.php?id="]');
+    const onclick = String(refresh?.getAttribute('onclick') || '');
+    const match = onclick.match(/guild_dungeon_enter\.php\?id=(\d+)/i);
+    return match ? match[1] : '';
+  }
+
+  function pageLooksLikeCube() {
+    if (document.getElementById('introOverlay') || document.getElementById('briefOverlay')) return true;
+    if (window.INSTANCE_ID && window.STATE && window.FACE_DATA) return true;
+    return /polyhedral crucible|cube instance/i.test(String(document.title || ''));
+  }
+
+  function introNeedsDismissal() {
+    if (window.STATE && window.STATE.intro_seen === true) {
+      markIntroSeenGlobally();
+      return false;
+    }
+    if (window.STATE && window.STATE.intro_seen === false) return true;
+    return !!(
+      document.getElementById('introOverlay')?.classList.contains('isOpen') ||
+      document.getElementById('briefOverlay')?.classList.contains('isOpen')
+    );
+  }
+
+  async function postDismissIntro(instanceId) {
+    const fd = new FormData();
+    fd.append('action', 'dismiss_intro');
+    fd.append('instance_id', String(instanceId));
+    fd.append('node_id', String(window.STATE?.selected_node_id || window.STATE?.entry_node_id || 1));
+
+    const res = await fetch('guild_dungeon_cube_action.php', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin'
+    });
+    const data = await res.json().catch(() => null);
+    return !!(res.ok && data && data.ok);
+  }
+
+  async function runSkipper() {
+    if (dismissing || !readEnabled() || !pageLooksLikeCube() || !introNeedsDismissal()) return;
+    syncStyles();
+
+    const instanceId = getInstanceId();
+    if (!instanceId) return;
+
+    const reloadFlag = RELOAD_FLAG_PREFIX + instanceId;
+    if (window.sessionStorage.getItem(reloadFlag) === '1') return;
+
+    dismissing = true;
+    try {
+      const ok = await postDismissIntro(instanceId);
+      if (!ok) return;
+      markIntroSeenGlobally();
+      window.sessionStorage.setItem(reloadFlag, '1');
+      window.location.reload();
+    } catch (_error) {
+      // If the server endpoint fails, leave the normal cube intro alone.
+    } finally {
+      dismissing = false;
+      syncStyles();
+    }
+  }
+
+  function watchManualIntroDismissal() {
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const text = String(target.textContent || target.getAttribute('aria-label') || '').trim();
+      const id = String(target.id || '');
+      if (
+        id === 'briefContinue' ||
+        /\b(?:continue|begin|enter|start|skip)\b/i.test(text)
+      ) {
+        window.setTimeout(() => {
+          if (window.STATE?.intro_seen === true || !introNeedsDismissal()) markIntroSeenGlobally();
+        }, 750);
+      }
+    }, true);
+  }
+
+  function addSettingsToggle() {
+    const container = document.getElementById('settingsDrawerContainer');
+    if (!container || document.getElementById('tmCubeAutoSkipIntroSetting')) return;
+
+    const group = document.createElement('div');
+    group.className = 'settings-group';
+    group.id = 'tmCubeAutoSkipIntroSetting';
+    group.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1);';
+
+    const title = document.createElement('div');
+    title.textContent = 'Cube';
+    title.style.cssText = 'font-weight:700;font-size:14px;';
+
+    const subtitle = document.createElement('div');
+    subtitle.textContent = 'Polyhedral Crucible helpers';
+    subtitle.style.cssText = 'font-size:12px;opacity:.7;';
+
+    const label = document.createElement('label');
+    label.className = 'settings-input switch-label';
+    label.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px;';
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = readEnabled();
+    input.id = 'ui-improvements:autoSkipCubeIntro';
+    input.setAttribute('data-setting-key', 'ui-improvements:autoSkipCubeIntro');
+
+    const slider = document.createElement('span');
+    slider.className = 'slider';
+
+    const text = document.createElement('span');
+    text.textContent = 'Auto-dismiss Cube intro';
+
+    input.addEventListener('change', () => {
+      writeEnabled(input.checked);
+      syncStyles();
+      if (input.checked) window.setTimeout(runSkipper, 50);
+    });
+
+    label.appendChild(input);
+    label.appendChild(slider);
+    label.appendChild(text);
+    group.appendChild(title);
+    group.appendChild(subtitle);
+    group.appendChild(label);
+    container.appendChild(group);
+  }
+
+  function watchPage() {
+    if (observer) observer.disconnect();
+    observer = new MutationObserver(() => {
+      addSettingsToggle();
+      syncStyles();
+      runSkipper();
+    });
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'aria-hidden']
+    });
+  }
+
+  function init() {
+    syncStyles();
+    addSettingsToggle();
+    watchPage();
+    runSkipper();
+    window.setTimeout(runSkipper, 150);
+    window.setTimeout(runSkipper, 500);
+    window.setTimeout(runSkipper, 1200);
+  }
+
+  syncStyles();
+  watchPage();
+  watchManualIntroDismissal();
+  runSkipper();
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
 })();
 
 
