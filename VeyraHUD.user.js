@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.17
+// @version      0.3.18
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Shadowbridge monster board, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -447,9 +447,9 @@
 
   // Seeded from your saved Emberfall battle pages so you don't have to open each mob manually.
   // If you later re-capture drops by visiting a battle page, those live values will be kept.
-  const DROPS_SEED_VERSION = '2026-04-10a';
+  const DROPS_SEED_VERSION = '2026-06-02a';
   const DROPS_SEED_COMPACT_JSON =
-    `{"arcaneback bear":{"mobName":"Arcaneback Bear","capturedAt":0,"items":[{"name":"Broken Oath Rune","tier":"EPIC","dropPct":65,"dmgReq":1200000,"locked":false},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":false},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2400000,"locked":false},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":false},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":false},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":false},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":false}],"mobKey":"arcaneback bear"},"arcanecrest hyena":{"mobName":"Arcanecrest Hyena","capturedAt":0,"items":[{"name":"Memory Ash","tier":"EPIC","dropPct":65,"dmgReq":1500000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":2500000,"locked":true},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanecrest hyena"},"arcanefang wolf":{"mobName":"Arcanefang Wolf","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":2500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Burnt Spellpage","tier":"COMMON","dropPct":80,"dmgReq":1000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanefang wolf"},"arcanehide boar":{"mobName":"Arcanehide Boar","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Cracked Mana Lens","tier":"RARE","dropPct":45,"dmgReq":1800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Burnt Spellpage","tier":"COMMON","dropPct":70,"dmgReq":1200000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanehide boar"},"hexpyre crow":{"mobName":"Hexpyre Crow","capturedAt":0,"items":[{"name":"Vaelith Sigil Fragment","tier":"EPIC","dropPct":45,"dmgReq":2200000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Black Ink Vial","tier":"RARE","dropPct":60,"dmgReq":1700000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Sealed Page","tier":"RARE","dropPct":80,"dmgReq":1300000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"hexpyre crow"},"runestag":{"mobName":"Runestag","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Cracked Mana Lens","tier":"RARE","dropPct":40,"dmgReq":1900000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Starglass Shard","tier":"RARE","dropPct":75,"dmgReq":1500000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"runestag"},"sigilscale viper":{"mobName":"Sigilscale Viper","capturedAt":0,"items":[{"name":"Archive Ember Seal","tier":"EPIC","dropPct":60,"dmgReq":2000000,"locked":true},{"name":"Sister\\u0027s Ribbon Thread","tier":"EPIC","dropPct":35,"dmgReq":2200000,"locked":true},{"name":"Ward Thread","tier":"EPIC","dropPct":70,"dmgReq":1800000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"sigilscale viper"},"spellfurnace lynx":{"mobName":"Spellfurnace Lynx","capturedAt":0,"items":[{"name":"Ward Thread","tier":"EPIC","dropPct":60,"dmgReq":2000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Observatory Gear","tier":"RARE","dropPct":65,"dmgReq":1800000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"spellfurnace lynx"}}`;
+    `{"black banner footsoldier":{"mobName":"Black Banner Footsoldier","capturedAt":0,"items":[{"name":"Black Banner Scrap","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"black banner footsoldier"},"ashlance skirmisher":{"mobName":"Ashlance Skirmisher","capturedAt":0,"items":[{"name":"Broken Gate Iron","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Handwraps","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"ashlance skirmisher"},"iron-grave shieldbearer":{"mobName":"Iron-Grave Shieldbearer","capturedAt":0,"items":[{"name":"Woundseal Cloth","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Greaves","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"iron-grave shieldbearer"},"woundchant acolyte":{"mobName":"Woundchant Acolyte","capturedAt":0,"items":[{"name":"White Ash Bandage","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Handwraps","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"woundchant acolyte"},"siege maw hound":{"mobName":"Siege Maw Hound","capturedAt":0,"items":[{"name":"Siegefang Splinter","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Greaves","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Handwraps","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"siege maw hound"},"cinder-tusk warbeast":{"mobName":"Cinder-Tusk Warbeast","capturedAt":0,"items":[{"name":"Hollow Warbone","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Greaves","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"cinder-tusk warbeast"},"hollow standard-bearer":{"mobName":"Hollow Standard-Bearer","capturedAt":0,"items":[{"name":"Unfallen Oath Thread","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"hollow standard-bearer"},"last gate remnant":{"mobName":"Last Gate Remnant","capturedAt":0,"items":[{"name":"Dawnlit Prayer Bead","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Greaves","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"last gate remnant"},"memory of ten million":{"mobName":"Memory of Ten Million","capturedAt":0,"items":[{"name":"Unfallen Oath Thread","tier":"EPIC","dropPct":100,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"memory of ten million"}}`;
 
   function isEnabled() {
     const raw = window.localStorage.getItem(LS.enabled);
@@ -504,7 +504,7 @@
   }
 
   function ensureDropsSeedInstalled() {
-    // Only seed once per version, and never overwrite existing mob entries.
+    // Keep the cache scoped to the current event seed so old event mobs do not linger.
     try {
       const currentSeed = window.localStorage.getItem(LS.dropsSeedVersion) || '';
       if (currentSeed === DROPS_SEED_VERSION) return;
@@ -513,29 +513,20 @@
       if (!seed || typeof seed !== 'object') return;
 
       const existing = loadDropsByMob();
-      let changed = false;
+      const next = {};
 
       for (const mobKey of Object.keys(seed)) {
-        if (!existing[mobKey]) {
-          existing[mobKey] = seed[mobKey];
-          changed = true;
-          continue;
-        }
-        const haveItems = Array.isArray(existing[mobKey].items) && existing[mobKey].items.length;
-        const seedItems = Array.isArray(seed[mobKey].items) && seed[mobKey].items.length;
-        if (!haveItems && seedItems) {
-          existing[mobKey] = seed[mobKey];
-          changed = true;
-        }
+        const current = existing[mobKey];
+        const haveItems = Array.isArray(current?.items) && current.items.length;
+        next[mobKey] = haveItems ? current : seed[mobKey];
       }
 
-      if (changed) saveDropsByMob(existing);
+      saveDropsByMob(next);
       window.localStorage.setItem(LS.dropsSeedVersion, DROPS_SEED_VERSION);
     } catch {
       // ignore
     }
   }
-
   function nowIso() {
     return new Date().toLocaleTimeString();
   }
@@ -548,8 +539,8 @@
     return normName(s).toLowerCase();
   }
 
-  // Emberfall uses event_page id 7 in the nav, but wave/battle links point to event=8 in your snapshots.
-  const EMBERFALL_EVENT_IDS = new Set(['7', '8']);
+  // Emberfall has used event ids 7 and 8 before; The Last Dawn uses event id 9.
+  const EMBERFALL_EVENT_IDS = new Set(['7', '8', '9']);
 
   function getSearchParam(name) {
     try {
@@ -725,7 +716,7 @@
     const text = normName(objectiveText);
 
     // Collect X x ItemName
-    // Example: "Objective: Collect 4 x Memory Ash. Drops in Arcane Wild Fringe."
+    // Example: "Objective: Collect 4 x Memory Ash. Drops in The Last Gate Battlefield."
     const mCollect = text.match(/Collect\s+(\d+)\s*x\s*([^.\n]+)/i);
     if (mCollect) {
       return { kind: 'item', qty: Number(mCollect[1]), name: normName(mCollect[2]) };
@@ -1089,7 +1080,7 @@
       const mobLinks = getMobTypeLinksFromWavePage();
       if (mobLinks.length) {
         const missing = mobLinks.filter((m) => !dropsByMob[normKey(m.mobName)]);
-        lines.push(`<div style="margin-top:10px;font-weight:800;color:#fff;">Arcane Wild Fringe Mobs</div>`);
+        lines.push(`<div style="margin-top:10px;font-weight:800;color:#fff;">The Last Gate Battlefield Mobs</div>`);
         lines.push(`<div style="color:#9aa0b8;margin-top:4px;">Mob types: <strong>${mobLinks.length}</strong> | Missing drop data: <strong>${missing.length}</strong></div>`);
         if (missing.length) {
           lines.push(`<div style="margin-top:6px;color:#c7cbdf;line-height:1.4;">Open one of these, then come back and hit <strong>Refresh Panel</strong>:</div>`);
