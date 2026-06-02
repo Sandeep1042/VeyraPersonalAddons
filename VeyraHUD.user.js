@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.18
+// @version      0.3.17
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Shadowbridge monster board, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        ://demonicscans.org/
@@ -67,7 +67,7 @@
       changes: [
         'AIO error toast now only triggers for actual AIO errors (ignores other userscripts/site errors).',
         'D1 strategy builder: internal stamina total helper no longer depends on a missing global name.',
-        'Solo PvP bot no longer prints  Unsupported page   even if something calls it outside PvP.'
+        'Solo PvP bot no longer prints “Unsupported page…” even if something calls it outside PvP.'
       ]
     },
     '0.3.14': {
@@ -441,14 +441,15 @@
     enabled: 'tm_emberfall_helper_enabled_v1',
     quests: 'tm_emberfall_quests_v1',
     dropsByMob: 'tm_emberfall_drops_by_mob_v1',
-    dropsSeedVersion: 'tm_emberfall_drops_seed_version_v1'
+    dropsSeedVersion: 'tm_emberfall_drops_seed_version_v1',
+    panelOpen: 'tm_emberfall_panel_open_v1'
   };
 
   // Seeded from your saved Emberfall battle pages so you don't have to open each mob manually.
   // If you later re-capture drops by visiting a battle page, those live values will be kept.
-  const DROPS_SEED_VERSION = '2026-06-02a';
+  const DROPS_SEED_VERSION = '2026-04-10a';
   const DROPS_SEED_COMPACT_JSON =
-    `{"black banner footsoldier":{"mobName":"Black Banner Footsoldier","capturedAt":0,"items":[{"name":"Black Banner Scrap","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"black banner footsoldier"},"ashlance skirmisher":{"mobName":"Ashlance Skirmisher","capturedAt":0,"items":[{"name":"Broken Gate Iron","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Handwraps","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"ashlance skirmisher"},"iron-grave shieldbearer":{"mobName":"Iron-Grave Shieldbearer","capturedAt":0,"items":[{"name":"Woundseal Cloth","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Greaves","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"iron-grave shieldbearer"},"woundchant acolyte":{"mobName":"Woundchant Acolyte","capturedAt":0,"items":[{"name":"White Ash Bandage","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Handwraps","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"woundchant acolyte"},"siege maw hound":{"mobName":"Siege Maw Hound","capturedAt":0,"items":[{"name":"Siegefang Splinter","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Greaves","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Handwraps","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"siege maw hound"},"cinder-tusk warbeast":{"mobName":"Cinder-Tusk Warbeast","capturedAt":0,"items":[{"name":"Hollow Warbone","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Greaves","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"cinder-tusk warbeast"},"hollow standard-bearer":{"mobName":"Hollow Standard-Bearer","capturedAt":0,"items":[{"name":"Unfallen Oath Thread","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"hollow standard-bearer"},"last gate remnant":{"mobName":"Last Gate Remnant","capturedAt":0,"items":[{"name":"Dawnlit Prayer Bead","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Greaves","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"last gate remnant"},"memory of ten million":{"mobName":"Memory of Ten Million","capturedAt":0,"items":[{"name":"Unfallen Oath Thread","tier":"EPIC","dropPct":100,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"memory of ten million"}}`;
+    {"arcaneback bear":{"mobName":"Arcaneback Bear","capturedAt":0,"items":[{"name":"Broken Oath Rune","tier":"EPIC","dropPct":65,"dmgReq":1200000,"locked":false},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":false},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2400000,"locked":false},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":false},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":false},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":false},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":false}],"mobKey":"arcaneback bear"},"arcanecrest hyena":{"mobName":"Arcanecrest Hyena","capturedAt":0,"items":[{"name":"Memory Ash","tier":"EPIC","dropPct":65,"dmgReq":1500000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":2500000,"locked":true},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanecrest hyena"},"arcanefang wolf":{"mobName":"Arcanefang Wolf","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":2500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Burnt Spellpage","tier":"COMMON","dropPct":80,"dmgReq":1000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanefang wolf"},"arcanehide boar":{"mobName":"Arcanehide Boar","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Cracked Mana Lens","tier":"RARE","dropPct":45,"dmgReq":1800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Burnt Spellpage","tier":"COMMON","dropPct":70,"dmgReq":1200000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanehide boar"},"hexpyre crow":{"mobName":"Hexpyre Crow","capturedAt":0,"items":[{"name":"Vaelith Sigil Fragment","tier":"EPIC","dropPct":45,"dmgReq":2200000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Black Ink Vial","tier":"RARE","dropPct":60,"dmgReq":1700000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Sealed Page","tier":"RARE","dropPct":80,"dmgReq":1300000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"hexpyre crow"},"runestag":{"mobName":"Runestag","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Cracked Mana Lens","tier":"RARE","dropPct":40,"dmgReq":1900000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Starglass Shard","tier":"RARE","dropPct":75,"dmgReq":1500000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"runestag"},"sigilscale viper":{"mobName":"Sigilscale Viper","capturedAt":0,"items":[{"name":"Archive Ember Seal","tier":"EPIC","dropPct":60,"dmgReq":2000000,"locked":true},{"name":"Sister\\u0027s Ribbon Thread","tier":"EPIC","dropPct":35,"dmgReq":2200000,"locked":true},{"name":"Ward Thread","tier":"EPIC","dropPct":70,"dmgReq":1800000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"sigilscale viper"},"spellfurnace lynx":{"mobName":"Spellfurnace Lynx","capturedAt":0,"items":[{"name":"Ward Thread","tier":"EPIC","dropPct":60,"dmgReq":2000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Observatory Gear","tier":"RARE","dropPct":65,"dmgReq":1800000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"spellfurnace lynx"}};
 
   function isEnabled() {
     const raw = window.localStorage.getItem(LS.enabled);
@@ -457,6 +458,16 @@
 
   function setEnabled(v) {
     window.localStorage.setItem(LS.enabled, v ? 'true' : 'false');
+  }
+
+  function isPanelOpen() {
+    const raw = window.localStorage.getItem(LS.panelOpen);
+    // Default open so it's discoverable (you can Hide it once and it will remember).
+    return raw === null ? true : raw === 'true';
+  }
+
+  function setPanelOpen(v) {
+    window.localStorage.setItem(LS.panelOpen, v ? 'true' : 'false');
   }
 
   function safeJsonParse(raw, fallback) {
@@ -493,7 +504,7 @@
   }
 
   function ensureDropsSeedInstalled() {
-    // Keep the cache scoped to the current event seed so old event mobs do not linger.
+    // Only seed once per version, and never overwrite existing mob entries.
     try {
       const currentSeed = window.localStorage.getItem(LS.dropsSeedVersion) || '';
       if (currentSeed === DROPS_SEED_VERSION) return;
@@ -502,15 +513,23 @@
       if (!seed || typeof seed !== 'object') return;
 
       const existing = loadDropsByMob();
-      const next = {};
+      let changed = false;
 
       for (const mobKey of Object.keys(seed)) {
-        const current = existing[mobKey];
-        const haveItems = Array.isArray(current?.items) && current.items.length;
-        next[mobKey] = haveItems ? current : seed[mobKey];
+        if (!existing[mobKey]) {
+          existing[mobKey] = seed[mobKey];
+          changed = true;
+          continue;
+        }
+        const haveItems = Array.isArray(existing[mobKey].items) && existing[mobKey].items.length;
+        const seedItems = Array.isArray(seed[mobKey].items) && seed[mobKey].items.length;
+        if (!haveItems && seedItems) {
+          existing[mobKey] = seed[mobKey];
+          changed = true;
+        }
       }
 
-      saveDropsByMob(next);
+      if (changed) saveDropsByMob(existing);
       window.localStorage.setItem(LS.dropsSeedVersion, DROPS_SEED_VERSION);
     } catch {
       // ignore
@@ -529,8 +548,8 @@
     return normName(s).toLowerCase();
   }
 
-  // Emberfall has used event ids 7 and 8 before; The Last Dawn uses event id 9.
-  const EMBERFALL_EVENT_IDS = new Set(['7', '8', '9']);
+  // Emberfall uses event_page id 7 in the nav, but wave/battle links point to event=8 in your snapshots.
+  const EMBERFALL_EVENT_IDS = new Set(['7', '8']);
 
   function getSearchParam(name) {
     try {
@@ -706,7 +725,7 @@
     const text = normName(objectiveText);
 
     // Collect X x ItemName
-    // Example: "Objective: Collect 4 x Memory Ash. Drops in The Last Gate Battlefield."
+    // Example: "Objective: Collect 4 x Memory Ash. Drops in Arcane Wild Fringe."
     const mCollect = text.match(/Collect\s+(\d+)\s*x\s*([^.\n]+)/i);
     if (mCollect) {
       return { kind: 'item', qty: Number(mCollect[1]), name: normName(mCollect[2]) };
@@ -770,7 +789,7 @@
 
     // Keep status concise; avoid "failed" noise when it simply cleared to 0.
     if (r.cleared) setStatus('Auto-captured: 0 objectives (cleared).');
-    else setStatus(`Auto-captured ${r.questsCount} quests.`);
+    else setStatus(Auto-captured ${r.questsCount} quests.);
     return true;
   }
 
@@ -827,8 +846,7 @@
 
   function getMobTypeLinksFromWavePage() {
     if (!isActiveWavePage()) return [];
-    // On wave pages, both alive + graveyard (dead) monsters use .monster-card. Drops Index only needs alive.
-    const cards = Array.from(document.querySelectorAll('.monster-card[data-monster-id]:not([data-dead="1"])'));
+    const cards = Array.from(document.querySelectorAll('.monster-card[data-monster-id]'));
     if (!cards.length) return [];
 
     const map = new Map(); // mobKey -> { mobName, url }
@@ -854,18 +872,13 @@
     ensureHudButton();
 
     if (document.getElementById('tmEmberfallHelperPanel')) {
-      // Cleanup for old versions that created a collapse button / persisted hidden state.
-      try { document.getElementById('tmEmberfallHelperCollapse')?.remove(); } catch {}
-      try {
-        const body = document.getElementById('tmEmberfallHelperBody');
-        if (body) body.style.display = 'block';
-      } catch {}
-
       const toggle = document.getElementById('tmEmberfallHelperToggle');
       if (toggle) {
         toggle.textContent = isEnabled() ? 'Emberfall Helper ON' : 'Emberfall Helper OFF';
         toggle.style.background = isEnabled() ? '#1f9d63' : '#963838';
       }
+      const collapseBtn = document.getElementById('tmEmberfallHelperCollapse');
+      if (collapseBtn) collapseBtn.textContent = isPanelOpen() ? 'Hide' : 'Show';
       return;
     }
 
@@ -889,7 +902,28 @@
     title.textContent = 'Emberfall Helper';
     Object.assign(title.style, { fontWeight: '800', color: '#fff' });
 
+    const collapse = document.createElement('button');
+    collapse.id = 'tmEmberfallHelperCollapse';
+    collapse.type = 'button';
+    collapse.textContent = isPanelOpen() ? 'Hide' : 'Show';
+    Object.assign(collapse.style, {
+      padding: '6px 10px',
+      borderRadius: '10px',
+      border: '1px solid rgba(255,255,255,0.12)',
+      background: 'rgba(255,255,255,0.06)',
+      color: '#fff',
+      cursor: 'pointer',
+      fontWeight: '700'
+    });
+    collapse.addEventListener('click', () => {
+      setPanelOpen(!isPanelOpen());
+      const body = document.getElementById('tmEmberfallHelperBody');
+      if (body) body.style.display = isPanelOpen() ? 'block' : 'none';
+      collapse.textContent = isPanelOpen() ? 'Hide' : 'Show';
+    });
+
     header.appendChild(title);
+    header.appendChild(collapse);
 
     const toggle = document.createElement('button');
     toggle.id = 'tmEmberfallHelperToggle';
@@ -914,7 +948,7 @@
 
     const body = document.createElement('div');
     body.id = 'tmEmberfallHelperBody';
-    body.style.display = 'block';
+    body.style.display = isPanelOpen() ? 'block' : 'none';
     body.style.opacity = isEnabled() ? '1' : '0.55';
 
     const actions = document.createElement('div');
@@ -1019,7 +1053,7 @@
 
   function setStatus(text) {
     const el = document.getElementById('tmEmberfallHelperStatus');
-    if (el) el.textContent = `[${nowIso()}] ${text}`;
+    if (el) el.textContent = [${nowIso()}] ${text};
     console.log('[Emberfall Helper]', text);
   }
 
@@ -1039,14 +1073,14 @@
     });
 
     const lines = [];
-    lines.push(`<div style="font-weight:800;color:#fff;">Quest Journal</div>`);
-    lines.push(`<div style="color:#9aa0b8;margin-top:4px;">Quests updated: <strong>${updated}</strong> | Drops known: <strong>${haveDrops}</strong> mobs</div>`);
+    lines.push(<div style="font-weight:800;color:#fff;">Quest Journal</div>);
+    lines.push(<div style="color:#9aa0b8;margin-top:4px;">Quests updated: <strong>${updated}</strong> | Drops known: <strong>${haveDrops}</strong> mobs</div>);
 
     if (!activeQuests.length) {
       if (q.updatedAt) {
-        lines.push(`<div style="margin-top:8px;color:#c7cbdf;">No active missions.</div>`);
+        lines.push(<div style="margin-top:8px;color:#c7cbdf;">No active missions.</div>);
       } else {
-        lines.push(`<div style="margin-top:8px;color:#c7cbdf;">No quests captured yet. Open the Emberfall event page and wait a moment (auto-capture runs on load).</div>`);
+        lines.push(<div style="margin-top:8px;color:#c7cbdf;">No quests captured yet. Open the Emberfall event page and wait a moment (auto-capture runs on load).</div>);
       }
     }
 
@@ -1055,19 +1089,19 @@
       const mobLinks = getMobTypeLinksFromWavePage();
       if (mobLinks.length) {
         const missing = mobLinks.filter((m) => !dropsByMob[normKey(m.mobName)]);
-        lines.push(`<div style="margin-top:10px;font-weight:800;color:#fff;">The Last Gate Battlefield Mobs</div>`);
-        lines.push(`<div style="color:#9aa0b8;margin-top:4px;">Mob types: <strong>${mobLinks.length}</strong> | Missing drop data: <strong>${missing.length}</strong></div>`);
+        lines.push(<div style="margin-top:10px;font-weight:800;color:#fff;">Arcane Wild Fringe Mobs</div>);
+        lines.push(<div style="color:#9aa0b8;margin-top:4px;">Mob types: <strong>${mobLinks.length}</strong> | Missing drop data: <strong>${missing.length}</strong></div>);
         if (missing.length) {
-          lines.push(`<div style="margin-top:6px;color:#c7cbdf;line-height:1.4;">Open one of these, then come back and hit <strong>Refresh Panel</strong>:</div>`);
-          lines.push(`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">`);
+          lines.push(<div style="margin-top:6px;color:#c7cbdf;line-height:1.4;">Open one of these, then come back and hit <strong>Refresh Panel</strong>:</div>);
+          lines.push(<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">);
           for (const m of missing.slice(0, 10)) {
             lines.push(
-              `<a href="${escapeHtml(m.url)}" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;border:1px solid rgba(255,255,255,0.10);background:rgba(255,255,255,0.04);color:#e6e9ff;">` +
-              `${escapeHtml(m.mobName)}` +
-              `</a>`
+              <a href="${escapeHtml(m.url)}" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;border:1px solid rgba(255,255,255,0.10);background:rgba(255,255,255,0.04);color:#e6e9ff;"> +
+              ${escapeHtml(m.mobName)} +
+              </a>
             );
           }
-          lines.push(`</div>`);
+          lines.push(</div>);
         }
       }
     }
@@ -1076,69 +1110,69 @@
       return lines.join('');
     }
 
-    lines.push(`<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">`);
+    lines.push(<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">);
     for (const quest of activeQuests) {
       const title = quest.title || '(untitled)';
       const type = quest.type || '';
       const objective = quest.objective || '';
-      const progress = quest.progress ? `${quest.progress.have}/${quest.progress.total}` : '';
+      const progress = quest.progress ? ${quest.progress.have}/${quest.progress.total} : '';
 
       let sourceHtml = '';
       if (quest.need && quest.need.kind === 'item') {
         const sources = computeItemSources(quest.need.name);
         if (sources.length) {
           sourceHtml =
-            `<div style="margin-top:6px;color:#cfeccc;">Drops from: ` +
+            <div style="margin-top:6px;color:#cfeccc;">Drops from:  +
             sources
               .slice(0, 4)
               .map((s) => {
-                const pct = (typeof s.dropPct === 'number') ? `${s.dropPct}%` : '?%';
-                return `<span style="white-space:nowrap;">${escapeHtml(s.mobName)} (${pct})</span>`;
+                const pct = (typeof s.dropPct === 'number') ? ${s.dropPct}% : '?%';
+                return <span style="white-space:nowrap;">${escapeHtml(s.mobName)} (${pct})</span>;
               })
               .join(', ') +
-            (sources.length > 4 ? ` +${sources.length - 4} more` : '') +
-            `</div>`;
+            (sources.length > 4 ?  +${sources.length - 4} more : '') +
+            </div>;
         } else {
-          sourceHtml = `<div style="margin-top:6px;color:#ffb3b3;">No drop sources cached yet. Open a few battles and refresh.</div>`;
+          sourceHtml = <div style="margin-top:6px;color:#ffb3b3;">No drop sources cached yet. Open a few battles and refresh.</div>;
         }
       }
 
       lines.push(
-        `<div style="padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);">` +
-          `<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">` +
-            `<div style="font-weight:800;color:#fff;">${escapeHtml(title)}</div>` +
-            `<div style="color:#9aa0b8;white-space:nowrap;">${escapeHtml(type)}${progress ? ` | ${escapeHtml(progress)}` : ''}</div>` +
-          `</div>` +
-          `<div style="margin-top:4px;color:#ffd369;font-weight:700;line-height:1.35;">${escapeHtml(objective)}</div>` +
+        <div style="padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);"> +
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"> +
+            <div style="font-weight:800;color:#fff;">${escapeHtml(title)}</div> +
+            <div style="color:#9aa0b8;white-space:nowrap;">${escapeHtml(type)}${progress ?  | ${escapeHtml(progress)}` : ''}</div>` +
+          </div> +
+          <div style="margin-top:4px;color:#ffd369;font-weight:700;line-height:1.35;">${escapeHtml(objective)}</div> +
           sourceHtml +
-        `</div>`
+        </div>
       );
     }
-    lines.push(`</div>`);
+    lines.push(</div>);
 
-    lines.push(`<div style="margin-top:10px;font-weight:800;color:#fff;">Drops Index</div>`);
-    lines.push(`<div style="margin-top:6px;color:#c7cbdf;">Drops are seeded from your saved mob pages; visiting a battle also refreshes that mob's Possible Loot table.</div>`);
+    lines.push(<div style="margin-top:10px;font-weight:800;color:#fff;">Drops Index</div>);
+    lines.push(<div style="margin-top:6px;color:#c7cbdf;">Drops are seeded from your saved mob pages; visiting a battle also refreshes that mob's Possible Loot table.</div>);
 
     const idx = buildDropsIndex();
     if (!idx.length) {
-      lines.push(`<div style="margin-top:6px;color:#9aa0b8;">No battles captured yet.</div>`);
+      lines.push(<div style="margin-top:6px;color:#9aa0b8;">No battles captured yet.</div>);
       return lines.join('');
     }
 
-    lines.push(`<div style="margin-top:8px;max-height:240px;overflow:auto;border-radius:10px;border:1px solid rgba(255,255,255,0.08);">`);
+    lines.push(<div style="margin-top:8px;max-height:240px;overflow:auto;border-radius:10px;border:1px solid rgba(255,255,255,0.08);">);
     for (const mob of idx) {
       const items = mob.items.slice(0, 6).map((it) => {
-        const pct = (typeof it.dropPct === 'number') ? `${it.dropPct}%` : '?%';
-        return `${it.name} (${pct})`;
+        const pct = (typeof it.dropPct === 'number') ? ${it.dropPct}% : '?%';
+        return ${it.name} (${pct});
       }).join(', ');
       lines.push(
-        `<div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.06);">` +
-          `<div style="font-weight:800;color:#fff;">${escapeHtml(mob.mobName)}</div>` +
-          `<div style="margin-top:4px;color:#9aa0b8;line-height:1.4;">${escapeHtml(items || 'No items')}</div>` +
-        `</div>`
+        <div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.06);"> +
+          <div style="font-weight:800;color:#fff;">${escapeHtml(mob.mobName)}</div> +
+          <div style="margin-top:4px;color:#9aa0b8;line-height:1.4;">${escapeHtml(items || 'No items')}</div> +
+        </div>
       );
     }
-    lines.push(`</div>`);
+    lines.push(</div>);
 
     return lines.join('');
   }
@@ -1177,18 +1211,18 @@
     });
 
     const lines = [];
-    lines.push(`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">`);
-    lines.push(`<div style="font-weight:900;color:#fff;">Quest Journal</div>`);
-    lines.push(`<div style="color:#9aa0b8;white-space:nowrap;font-size:12px;">Drops known: <strong>${haveDrops}</strong> mobs</div>`);
-    lines.push(`</div>`);
+    lines.push(<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">);
+    lines.push(<div style="font-weight:900;color:#fff;">Quest Journal</div>);
+    lines.push(<div style="color:#9aa0b8;white-space:nowrap;font-size:12px;">Drops known: <strong>${haveDrops}</strong> mobs</div>);
+    lines.push(</div>);
 
     if (!activeQuests.length) {
-      if (q.updatedAt) lines.push(`<div style="margin-top:6px;color:#c7cbdf;">No active missions.</div>`);
-      else lines.push(`<div style="margin-top:6px;color:#c7cbdf;">No quests captured yet. Open the Emberfall map and wait a moment (auto-capture runs on load).</div>`);
+      if (q.updatedAt) lines.push(<div style="margin-top:6px;color:#c7cbdf;">No active missions.</div>);
+      else lines.push(<div style="margin-top:6px;color:#c7cbdf;">No quests captured yet. Open the Emberfall map and wait a moment (auto-capture runs on load).</div>);
       return lines.join('');
     }
 
-    lines.push(`<div style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">`);
+    lines.push(<div style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">);
     for (const quest of activeQuests.slice(0, 6)) {
       const objective = quest.objective || '';
       let source = '';
@@ -1196,24 +1230,24 @@
         const sources = computeItemSources(quest.need.name);
         if (sources.length) {
           source =
-            `<div style="margin-top:4px;color:#cfeccc;">Drops: ` +
+            <div style="margin-top:4px;color:#cfeccc;">Drops:  +
             sources
               .slice(0, 2)
               .map((s) => escapeHtml(s.mobName))
               .join(', ') +
-            (sources.length > 2 ? ` +${sources.length - 2}` : '') +
-            `</div>`;
+            (sources.length > 2 ?  +${sources.length - 2} : '') +
+            </div>;
         }
       }
 
       lines.push(
-        `<div style="padding:8px;border-radius:12px;border:1px solid rgba(255,255,255,0.10);background:rgba(20,22,35,0.55);">` +
-          `<div style="color:#ffd369;font-weight:800;line-height:1.35;">${escapeHtml(objective)}</div>` +
+        <div style="padding:8px;border-radius:12px;border:1px solid rgba(255,255,255,0.10);background:rgba(20,22,35,0.55);"> +
+          <div style="color:#ffd369;font-weight:800;line-height:1.35;">${escapeHtml(objective)}</div> +
           source +
-        `</div>`
+        </div>
       );
     }
-    lines.push(`</div>`);
+    lines.push(</div>);
 
     return lines.join('');
   }
@@ -1253,7 +1287,7 @@
     const payload = parseLootFromBattlePage();
     if (!payload) return;
     if (upsertDrops(payload)) {
-      setStatus(`Captured drops for ${payload.mobName} (${payload.items.length} items).`);
+      setStatus(Captured drops for ${payload.mobName} (${payload.items.length} items).);
     }
   }
 
@@ -1278,6 +1312,7 @@
     // No UI on battle pages.
   }
 })();
+
 
 // ============================================================
 // Module: Graveyard Multi-Loot (Graveyard.user.js)
@@ -1932,7 +1967,7 @@
         background: rgba(26,157,115,0.25);
       }
       .tm-loot-select:checked::before {
-        content: "?";
+        content: "✓";
         color: #eafff6;
         font-size: 13px;
         line-height: 1;
@@ -1955,7 +1990,7 @@
 
       /* Fix any encoding weirdness: force the actual checkmark glyph */
       .tm-loot-select:checked::before{
-        content: "?" !important;
+        content: "✓" !important;
       }
 
       /* ===== Wave card size control bar (Wave 3 style) ===== */
@@ -2223,7 +2258,7 @@
     modal.setAttribute('aria-modal', 'true');
     modal.innerHTML = `
       <div class="tmml-box">
-        <h2 class="tmml-head">?? Loot Gained</h2>
+        <h2 class="tmml-head">🎁 Loot Gained</h2>
         <div class="tmml-note" id="${MODAL_ID}_note" style="display:none;"></div>
         <div class="tmml-summary" id="${MODAL_ID}_summary"></div>
         <div class="tmml-grid" id="${MODAL_ID}_grid"></div>
@@ -2407,7 +2442,7 @@
     if (badge) {
       const cachedCount = cached?.types ? cached.types.size : 0;
       badge.textContent = isLoading
-        ? types: ${pageTypes.size} (page) / ${cachedCount || '?'} (all)   loading 
+        ? types: ${pageTypes.size} (page) / ${cachedCount || '?'} (all) — loading…
         : types: ${pageTypes.size} (page) / ${cachedCount || pageTypes.size} (all);
     }
   }
@@ -3037,7 +3072,7 @@
     const html = await response.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const locationName = cleanText(
-      doc.querySelector('.h')?.textContent?.replace(/^??\s*/u, '') || fallbackName
+      doc.querySelector('.h')?.textContent?.replace(/^📍\s*/u, '') || fallbackName
     );
     const monsterCards = Array.from(doc.querySelectorAll('.mon'));
 
@@ -3098,7 +3133,7 @@
       <div class="tm-sbw-qol">
         <div class="qol-top">
           <div class="qol-filters">
-            <span class="qol-title">??? D1 Multi Targets</span>
+            <span class="qol-title">🗺️ D1 Multi Targets</span>
 
             <div class="select-wrap">
               <select id="fNameSel" class="modern-select" data-role="name-filter">
@@ -3120,21 +3155,21 @@
             <label><input type="checkbox" data-role="unjoined-filter" checked> Unjoined</label>
 
             <div class="qol-select-actions">
-              <button class="btn" type="button" id="btnSelectVisible" data-role="select-visible">? Select visible</button>
-              <button class="btn" type="button" id="btnClearSelect" data-role="clear-selected">?? Clear</button>
-              <button type="button" class="btn btnAttackSettings" data-role="open-strat-settings">?? ?? Settings</button>
+              <button class="btn" type="button" id="btnSelectVisible" data-role="select-visible">✅ Select visible</button>
+              <button class="btn" type="button" id="btnClearSelect" data-role="clear-selected">🧹 Clear</button>
+              <button type="button" class="btn btnAttackSettings" data-role="open-strat-settings">⚙️ 🧠 Settings</button>
             </div>
 
             <span class="tm-sbw-selected-count" data-role="selected-count">Selected: 0</span>
           </div>
 
           <div class="qol-attacks">
-            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="0" data-stam="1">? Quick Join & Attack (1)</button>
-            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="-1" data-stam="10">? Quick Join & Attack (10)</button>
-            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="-2" data-stam="50">? Quick Join & Attack (50)</button>
-            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="-3" data-stam="100">? Quick Join & Attack (100)</button>
-            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="-4" data-stam="200">? Quick Join & Attack (200)</button>
-            <button type="button" class="btn btnAttackStrat" data-role="attack-strat-run">?? Quick Join & Attack (50) (limit 3.5m)</button>
+            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="0" data-stam="1">⚡ Quick Join & Attack (1)</button>
+            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="-1" data-stam="10">⚡ Quick Join & Attack (10)</button>
+            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="-2" data-stam="50">⚡ Quick Join & Attack (50)</button>
+            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="-3" data-stam="100">⚡ Quick Join & Attack (100)</button>
+            <button class="btn btnQuickJoinAttack" type="button" data-role="quick-attack" data-skill-id="-4" data-stam="200">⚡ Quick Join & Attack (200)</button>
+            <button type="button" class="btn btnAttackStrat" data-role="attack-strat-run">🧠 Quick Join & Attack (50) (limit 3.5m)</button>
           </div>
         </div>
 
@@ -3153,7 +3188,7 @@
 
       <div class="attack-strat-overlay" data-role="strat-overlay" style="display:none;">
         <div class="attack-strat-modal">
-          <h3 class="attack-strat-title">?? Attack Strategy Builder</h3>
+          <h3 class="attack-strat-title">🧠 Attack Strategy Builder</h3>
 
           <div class="attack-strat-picker" data-role="skill-picker">
             <button type="button" class="btn attack-strat-skill-btn" data-role="skill-pick" data-skill-id="0" data-stam="1">Slash (1)</button>
@@ -3616,3 +3651,2087 @@
           !monster.dead
         );
       });
+
+      controls.runLine.dataset.busy = '1';
+      controls.runLine.textContent = 'Loading your damage numbers...';
+      await hydratePersonalDamage(candidates, render);
+      await runFillQuota(candidates);
+    };
+
+    controls.fillAllTreatQuotas.addEventListener('click', async () => {
+      await runFillAllByKind('treat');
+    });
+
+    controls.fillAllXpCaps.addEventListener('click', async () => {
+      await runFillAllByKind('xp');
+    });
+
+    const STRAT_ORDER_KEY = 'tm_sbw_strategy_order_v1';
+    const STRAT_USE_LIMIT_KEY = 'tm_sbw_strategy_use_limit_v2';
+    const STRAT_LIMIT_KEY = 'tm_sbw_strategy_limit_v2';
+
+    const SKILLS = [
+      { skillId: 0, name: 'Slash', stamina: 1 },
+      { skillId: -1, name: 'Power Slash', stamina: 10 },
+      { skillId: -2, name: 'Heroic Slash', stamina: 50 },
+      { skillId: -3, name: 'Ultimate Slash', stamina: 100 },
+      { skillId: -4, name: 'Legendary Slash', stamina: 200 }
+    ];
+
+    function getSkillById(skillId) {
+      const id = Number(skillId);
+      return SKILLS.find((s) => s.skillId === id) || null;
+    }
+
+    function getSkillByStamina(stamina) {
+      const s = Number(stamina);
+      return SKILLS.find((sk) => sk.stamina === s) || SKILLS[0];
+    }
+
+    function readStrategyOrder() {
+      try {
+        const raw = window.sessionStorage.getItem(STRAT_ORDER_KEY) || '[]';
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return [];
+        return arr.map((x) => Number(x)).filter(👎 => Number.isFinite(n) && !!getSkillById(n));
+      } catch {
+        return [];
+      }
+    }
+
+    function writeStrategyOrder(order) {
+      try { window.sessionStorage.setItem(STRAT_ORDER_KEY, JSON.stringify(order || [])); } catch {}
+    }
+
+    function readLimitConfig() {
+      let useLimit = false;
+      let limit = 0;
+      try {
+        useLimit = (window.sessionStorage.getItem(STRAT_USE_LIMIT_KEY) || '0') === '1';
+        const l = parseInt(window.sessionStorage.getItem(STRAT_LIMIT_KEY) || '0', 10);
+        if (Number.isFinite(l) && l >= 0) limit = l;
+      } catch {}
+      return { useLimit, limit };
+    }
+
+    function writeLimitConfig(next) {
+      try { window.sessionStorage.setItem(STRAT_USE_LIMIT_KEY, next.useLimit ? '1' : '0'); } catch {}
+      try { window.sessionStorage.setItem(STRAT_LIMIT_KEY, String(next.limit ?? 0)); } catch {}
+    }
+
+    function calcStrategyTotalStam(order) {
+      return (order || []).reduce((sum, id) => {
+        const sk = getSkillById(id);
+        return sum + (sk ? sk.stamina : 0);
+      }, 0);
+    }
+
+    function fmtShort(n) {
+      const num = Number(n || 0);
+      if (!Number.isFinite(num)) return '0';
+      if (num >= 1e9) return (num / 1e9).toFixed(1).replace(/\.0$/, '') + 'b';
+      if (num >= 1e6) return (num / 1e6).toFixed(1).replace(/\.0$/, '') + 'm';
+      if (num >= 1e3) return (num / 1e3).toFixed(1).replace(/\.0$/, '') + 'k';
+      return String(Math.floor(num));
+    }
+
+    function updateStratRunLabel() {
+      const btn = board.querySelector('[data-role="attack-strat-run"]');
+      if (!btn) return;
+      const order = readStrategyOrder();
+      const total = calcStrategyTotalStam(order);
+      const lim = readLimitConfig();
+      btn.disabled = order.length === 0;
+      btn.textContent =🧠 Quick Join & Attack (${total || 0})` + (lim.useLimit && lim.limit > 0 ?  (limit ${fmtShort(lim.limit)}) : '');
+      return;
+      btn.textContent =🧠 Quick Join & Attack (${total || 0})` + (lim.useLimit && lim.limit > 0 ?  (limit ${fmtShort(lim.limit)}) : '');
+      return;
+      const s = readStrat();
+      btn.textContent =🧠 Quick Join & Attack (${s.stam})` + (s.useLimit ?  (limit ${fmtShort(s.limit)}) : '');
+    }
+
+    function setAttackBusy(busy) {
+      board.querySelectorAll('[data-role="quick-attack"], [data-role="attack-strat-run"], [data-role="open-selected"], [data-role="damage-test"], [data-role="one-hit-quota"], [data-role="fill-all-treat-quotas"], [data-role="fill-all-xp-caps"]').forEach((el) => {
+        if (!(el instanceof HTMLButtonElement)) return;
+        if (busy) {
+          el.dataset.tmPrevDisabled = el.disabled ? '1' : '0';
+          el.disabled = true;
+        } else {
+          const prev = el.dataset.tmPrevDisabled === '1';
+          delete el.dataset.tmPrevDisabled;
+          el.disabled = prev;
+        }
+      });
+    }
+
+    async function runQuickAttack(skillId, staminaCost) {
+      const sid = Number(skillId);
+      const stamina = Math.max(1, parseInt(String(staminaCost || '1'), 10) || 1);
+
+      const candidates = allMonsters.filter((monster) =>
+        selected.has(monster.id) &&
+        monster.actionUrl &&
+        monster.dgmid &&
+        monster.instanceId &&
+        !monster.dead
+      );
+
+      if (candidates.length === 0) {
+        openAttackModal(board, {
+          processed: 0,
+          success: 0,
+          failed: 1,
+          results: [{ id: '-', ok: false, html: 'No live selected monsters with valid battle links were found.' }]
+        });
+        return;
+      }
+
+      setAttackBusy(true);
+      const results = [];
+      const skipped = [];
+      let success = 0;
+      let failed = 0;
+      let processedCount = 0;
+
+      for (const monster of candidates) {
+        const liveUsageMap = getRuleUsageMap();
+        if (monster.limitRule && hasReachedLimit(monster, liveUsageMap)) {
+          skipped.push({
+            id: monster.dgmid || monster.name,
+            ok: false,
+            html: Skipped: target reached<br>${escapeHtml(buildLimitSummary(monster, liveUsageMap, allMonsters))}
+          });
+          continue;
+        }
+
+        processedCount += 1;
+        controls.selectedCount.textContent = Selected: ${selected.size} | attacking ${processedCount}/${candidates.length};
+
+        try {
+          const result = await quickJoinAndAttack(monster, sid, stamina);
+          if (result.ok) {
+            results.push(result);
+            quotaStore.mark(monster);
+            const nextDamage = Number(monster.personalDamage || 0) + Number(result.damageDelta || 0);
+            monster.personalDamage = Math.max(nextDamage, Number(monster.personalDamage || 0));
+            damageCache.set(monster, monster.personalDamage);
+            damageModel.addSample(stamina > 0 ? (Number(result.damageDelta || 0) / stamina) : Number(result.damageDelta || 0));
+            success += 1;
+          } else if (isRetryableAttackFailure(result)) {
+            await delay(ATTACK_GAP_MS);
+            processedCount -= 1;
+            continue;
+          } else {
+            results.push(result);
+            failed += 1;
+          }
+        } catch (error) {
+          failed += 1;
+          results.push({
+            id: monster.dgmid || monster.name,
+            ok: false,
+            html: Join: Failed<br>Attack: ${escapeHtml(error.message || 'Server error')}
+          });
+        }
+        await delay(ATTACK_GAP_MS);
+      }
+
+      openAttackModal(board, {
+        processed: processedCount + skipped.length,
+        success,
+        failed: failed + skipped.length,
+        results: results.concat(skipped)
+      });
+
+      setAttackBusy(false);
+      controls.selectedCount.textContent = Selected: ${selected.size};
+      updateStratRunLabel();
+      render();
+    }
+
+    async function runStrategyAttack() {
+      const order = readStrategyOrder();
+      const totalStam = calcStrategyTotalStam(order);
+      const lim = readLimitConfig();
+
+      const candidates = allMonsters.filter((monster) =>
+        selected.has(monster.id) &&
+        monster.actionUrl &&
+        monster.dgmid &&
+        monster.instanceId &&
+        !monster.dead
+      );
+
+      if (!order.length) {
+        openAttackModal(board, { processed: 0, success: 0, failed: 1, results: [{ id: '-', ok: false, html: 'Add at least 1 attack to the strategy first.' }] });
+        return;
+      }
+
+      if (candidates.length === 0) {
+        openAttackModal(board, { processed: 0, success: 0, failed: 1, results: [{ id: '-', ok: false, html: 'No live selected monsters with valid battle links were found.' }] });
+        return;
+      }
+
+      setAttackBusy(true);
+      const results = [];
+      let okCount = 0;
+      let processedHits = 0;
+
+      for (const monster of candidates) {
+        for (let i = 0; i < order.length; i += 1) {
+          const sk = getSkillById(order[i]);
+          if (!sk) continue;
+
+          const liveUsageMap = getRuleUsageMap();
+          if (monster.limitRule && hasReachedLimit(monster, liveUsageMap)) {
+            results.push({
+              id: monster.dgmid || monster.name,
+              ok: false,
+              html: Skipped: target reached<br>${escapeHtml(buildLimitSummary(monster, liveUsageMap, allMonsters))}
+            });
+            break;
+          }
+
+          if (lim.useLimit && lim.limit > 0 && monster.limitRule) {
+            const remaining = Math.max(0, Number(monster.limitRule.targetDamage || 0) - Number(monster.personalDamage || 0));
+            if (remaining <= lim.limit) {
+              results.push({
+                id: monster.dgmid || monster.name,
+                ok: false,
+                html: Stopped: remaining <= limit<br>Remaining: <strong>${escapeHtml(formatDamage(remaining))}</strong> | Limit: ${escapeHtml(formatDamage(lim.limit))}
+              });
+              break;
+            }
+          }
+
+          processedHits += 1;
+          controls.selectedCount.textContent = Selected: ${selected.size} | attacking ${processedHits}/${candidates.length} (${totalStam} stam);
+
+          try {
+            const r = await quickJoinAndAttack(monster, sk.skillId, sk.stamina);
+            const withId = { ...r, id: ${monster.dgmid || monster.name} • ${sk.name} (${sk.stamina}) };
+            results.push(withId);
+            if (r.ok) {
+              okCount += 1;
+              quotaStore.mark(monster);
+              const nextDamage = Number(monster.personalDamage || 0) + Number(r.damageDelta || 0);
+              monster.personalDamage = Math.max(nextDamage, Number(monster.personalDamage || 0));
+              damageCache.set(monster, monster.personalDamage);
+              damageModel.addSample(sk.stamina > 0 ? (Number(r.damageDelta || 0) / sk.stamina) : Number(r.damageDelta || 0));
+            } else if (isRetryableAttackFailure(r)) {
+              await delay(ATTACK_GAP_MS);
+              processedHits -= 1;
+              i -= 1;
+              results.pop();
+              continue;
+            }
+          } catch (e) {
+            results.push({
+              id: ${monster.dgmid || monster.name} • ${sk.name} (${sk.stamina}),
+              ok: false,
+              html: Join: Failed<br>Attack: ${escapeHtml(e?.message || 'Server error')}
+            });
+          }
+
+          await delay(ATTACK_GAP_MS);
+        }
+      }
+
+      openAttackModal(board, {
+        processed: results.length,
+        success: okCount,
+        failed: results.length - okCount,
+        results
+      });
+
+      setAttackBusy(false);
+      controls.selectedCount.textContent = Selected: ${selected.size};
+      updateStratRunLabel();
+      render();
+    }
+
+    board.querySelectorAll('[data-role="quick-attack"]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const stam = parseInt(btn.getAttribute('data-stam') || '1', 10) || 1;
+        const sid = parseInt(btn.getAttribute('data-skill-id') || '0', 10) || 0;
+        await runQuickAttack(sid, stam);
+      });
+    });
+
+    board.querySelector('[data-role="attack-strat-run"]')?.addEventListener('click', async () => {
+      await runStrategyAttack();
+    });
+
+    const overlay = board.querySelector('[data-role="strat-overlay"]');
+    const closeBtn = board.querySelector('[data-role="strat-close"]');
+    const useLimitEl = board.querySelector('[data-role="strat-use-limit"]');
+    const limitEl = board.querySelector('[data-role="strat-limit"]');
+    const chipsEl = board.querySelector('[data-role="strategy-chips"]');
+    const totalEl = board.querySelector('[data-role="total-stam-cost"]');
+
+    function renderStrategyBuilder() {
+      const order = readStrategyOrder();
+      const lim = readLimitConfig();
+
+      if (useLimitEl instanceof HTMLInputElement) useLimitEl.checked = !!lim.useLimit;
+      if (limitEl instanceof HTMLInputElement) {
+        limitEl.value = String(lim.limit || 0);
+        limitEl.disabled = !lim.useLimit;
+      }
+
+      const total = calcStrategyTotalStam(order);
+      if (totalEl) totalEl.textContent = String(total);
+
+      if (chipsEl) {
+        chipsEl.innerHTML = order.length
+          ? order.map((id, idx) => {
+              const sk = getSkillById(id);
+              const label = sk ? ${sk.name} (${sk.stamina}) : Skill ${id};
+              const upDis = idx === 0 ? 'is-disabled' : '';
+              const dnDis = idx === order.length - 1 ? 'is-disabled' : '';
+              return `
+                <div class="attack-strat-chip" data-idx="${idx}">
+                  <span class="attack-strat-chip-label">${escapeHtml(label)}</span>
+                  <div class="attack-strat-chip-controls">
+                    <button type="button" class="attack-strat-chip-btn attack-strat-chip-up ${upDis}" data-role="chip-up" title="Move up">↑</button>
+                    <button type="button" class="attack-strat-chip-btn attack-strat-chip-down ${dnDis}" data-role="chip-down" title="Move down">↓</button>
+                    <button type="button" class="attack-strat-chip-btn attack-strat-chip-remove" data-role="chip-remove" title="Remove">✕</button>
+                  </div>
+                </div>
+              `;
+            }).join('')
+          : <div class="attack-strat-chip" style="opacity:.65;"><span class="attack-strat-chip-label">Pick attacks above to build a strategy.</span></div>;
+      }
+
+      updateStratRunLabel();
+    }
+
+    function openStratOverlay() {
+      if (!overlay) return;
+      overlay.style.display = 'flex';
+      renderStrategyBuilder();
+    }
+
+    function closeStratOverlay() {
+      if (!overlay) return;
+      overlay.style.display = 'none';
+      updateStratRunLabel();
+    }
+
+    board.querySelector('[data-role="open-strat-settings"]')?.addEventListener('click', openStratOverlay);
+    closeBtn?.addEventListener('click', closeStratOverlay);
+    overlay?.addEventListener('click', (e) => {
+      if (e.target === overlay) closeStratOverlay();
+    });
+
+    board.querySelectorAll('[data-role="skill-pick"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const order = readStrategyOrder();
+        const sid = parseInt(btn.getAttribute('data-skill-id') || '0', 10);
+        if (!Number.isFinite(sid)) return;
+        order.push(sid);
+        writeStrategyOrder(order);
+        renderStrategyBuilder();
+      });
+    });
+
+    chipsEl?.addEventListener('click', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const chip = t.closest('.attack-strat-chip');
+      if (!chip) return;
+      const idx = parseInt(chip.getAttribute('data-idx') || '-1', 10);
+      if (!Number.isFinite(idx) || idx < 0) return;
+
+      const order = readStrategyOrder();
+      if (idx >= order.length) return;
+
+      if (t.matches('[data-role="chip-remove"]')) {
+        order.splice(idx, 1);
+        writeStrategyOrder(order);
+        renderStrategyBuilder();
+        return;
+      }
+      if (t.matches('[data-role="chip-up"]') && idx > 0) {
+        const tmp = order[idx - 1];
+        order[idx - 1] = order[idx];
+        order[idx] = tmp;
+        writeStrategyOrder(order);
+        renderStrategyBuilder();
+        return;
+      }
+      if (t.matches('[data-role="chip-down"]') && idx < order.length - 1) {
+        const tmp = order[idx + 1];
+        order[idx + 1] = order[idx];
+        order[idx] = tmp;
+        writeStrategyOrder(order);
+        renderStrategyBuilder();
+        return;
+      }
+    });
+
+    function persistLimit() {
+      const next = readLimitConfig();
+      if (useLimitEl instanceof HTMLInputElement) next.useLimit = !!useLimitEl.checked;
+      if (limitEl instanceof HTMLInputElement) next.limit = Math.max(0, parseInt(limitEl.value || '0', 10) || 0);
+      writeLimitConfig(next);
+      renderStrategyBuilder();
+    }
+
+    useLimitEl?.addEventListener('change', persistLimit);
+    limitEl?.addEventListener('input', persistLimit);
+
+    updateStratRunLabel();
+
+    render();
+  }
+
+  function getVisibleMonsters(board, monsters) {
+    const showAlive = board.querySelector('[data-role="alive-filter"]')?.checked;
+    const showDead = board.querySelector('[data-role="dead-filter"]')?.checked;
+    const showJoined = board.querySelector('[data-role="joined-filter"]')?.checked;
+    const showUnjoined = board.querySelector('[data-role="unjoined-filter"]')?.checked;
+    const nameFilter = (board.querySelector('[data-role="name-filter"]')?.value || '').trim();
+
+    return monsters.filter((monster) => {
+      if (nameFilter && monster.name.toLowerCase() !== nameFilter) {
+        return false;
+      }
+      if (monster.dead && !showDead) {
+        return false;
+      }
+      if (!monster.dead && !showAlive) {
+        return false;
+      }
+      if (monster.joined && !showJoined) {
+        return false;
+      }
+      if (!monster.joined && !showUnjoined) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  function renderMonsterChip(monster, checked, usageMap, allMonsters) {
+    const imageUrl = monster.image ? new URL(monster.image, window.location.origin).toString() : '';
+    const statusClass = monster.dead ? 'dead' : 'alive';
+    const metaLabel = monster.dead ? 'Dead' : 'Alive';
+    const limitRule = monster.limitRule;
+    const remaining = limitRule ? Math.max(0, limitRule.targetDamage - Number(monster.personalDamage || 0)) : null;
+    const usage = limitRule ? usageMap.get(limitRule.ruleKey) || { started: 0, capped: 0 } : null;
+    const slotLocked = limitRule ? isRuleSlotLocked(monster, usageMap) : false;
+    const untouched = limitRule ? countUntouchedRuleMonsters(limitRule, allMonsters, usageMap) : 0;
+
+    return `
+      <label class="tm-sbw-monster-chip ${statusClass}">
+        <input type="checkbox" class="tm-sbw-monster-check" value="${escapeHtml(monster.id)}" ${checked ? 'checked' : ''}>
+        <div class="tm-sbw-monster-card">
+          <div class="tm-sbw-monster-top">
+            ${imageUrl ? <img class="tm-sbw-monster-img" src="${escapeHtml(imageUrl)}" alt=""> : ''}
+            <div class="tm-sbw-monster-main">
+              <div class="tm-sbw-monster-name">${escapeHtml(monster.name)}</div>
+              <div class="tm-sbw-monster-meta">
+                <span class="tm-sbw-badge ${statusClass}">${metaLabel}</span>
+                <span class="tm-sbw-badge">${monster.joined ? 'Joined' : 'Not joined'}</span>
+              </div>
+              <div class="tm-sbw-stats">
+                <span class="tm-sbw-user-dmg">Your DMG ${escapeHtml(formatDamage(monster.personalDamage))}</span>
+                ${limitRule ? <span class="tm-sbw-limit-note ${remaining === 0 ? 'done' : ''} ${slotLocked ? 'locked' : ''}">${escapeHtml(limitRule.item)} ${escapeHtml(String(limitRule.maxTargets))}x${escapeHtml(shortDamage(limitRule.targetDamage))} | hit today ${escapeHtml(String(usage.started))}/${escapeHtml(String(limitRule.maxTargets))} | untouched ${escapeHtml(String(untouched))} | left ${escapeHtml(formatDamage(remaining))}${slotLocked ? ' | slots full' : ''}</span> : ''}
+                <span>HP ${escapeHtml(monster.hp || '?')}</span>
+                <span>ATK ${escapeHtml(monster.atk || '?')}</span>
+                <span>DEF ${escapeHtml(monster.def || '?')}</span>
+                <span>EXP/dmg ${escapeHtml(monster.expPerDamage || '?')}</span>
+              </div>
+            </div>
+          </div>
+          <div class="tm-sbw-monster-actions">
+            ${monster.actionUrl ? <a class="btn tm-sbw-action" href="${escapeHtml(monster.actionUrl)}">${escapeHtml(monster.actionLabel)}</a> : ''}
+          </div>
+        </div>
+      </label>
+    `;
+  }
+
+  async function quickJoinAndAttack(monster, skillId, staminaCost) {
+    const joinPayload = {
+      dgmid: monster.dgmid,
+      instance_id: monster.instanceId
+    };
+
+    if (USER_ID) {
+      joinPayload.user_id = USER_ID;
+    }
+
+    const joinResult = await postForm('dungeon_join_battle.php', joinPayload);
+    const joinText = normalizeResponseMessage(joinResult);
+
+    const attackResult = await postForm('damage.php', {
+      dgmid: monster.dgmid,
+      instance_id: monster.instanceId,
+      skill_id: String(skillId ?? 0),
+      stamina_cost: String(staminaCost)
+    });
+
+    const attackJson = attackResult.data || {};
+    const attackText = normalizeAttackMessage(attackResult, monster.name);
+    const ok = attackResult.ok && String(attackJson.status || '').trim().toLowerCase() === 'success';
+    const damageDelta = Number(attackJson.damage_dealt || attackJson.damage || parseDamageFromHtml(attackJson.message || attackResult.raw) || 0);
+
+    return {
+      id: monster.dgmid,
+      ok,
+      damageDelta,
+      messageText: cleanText(
+        attackJson.message ||
+        attackJson.error ||
+        attackResult.raw ||
+        ''
+      ),
+      data: attackJson,
+      raw: attackResult.raw,
+      html: Join: ${escapeHtml(joinText)}<br>Attack: ${attackText}
+    };
+  }
+
+  async function postForm(url, payload) {
+    const body = new URLSearchParams();
+    Object.entries(payload || {}).forEach(([key, value]) => {
+      body.set(key, String(value));
+    });
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      credentials: 'same-origin',
+      body: body.toString()
+    });
+
+    const raw = await response.text();
+    let data = null;
+    try {
+      data = JSON.parse(raw);
+    } catch (_error) {
+      data = null;
+    }
+
+    return { ok: response.ok, raw, data };
+  }
+
+  function normalizeResponseMessage(result) {
+    if (result.data?.message) {
+      return cleanText(result.data.message);
+    }
+    if (result.data?.error) {
+      return cleanText(result.data.error);
+    }
+    return cleanText(result.raw || (result.ok ? 'OK' : 'Failed'));
+  }
+
+  function normalizeAttackMessage(result, fallbackName) {
+    if (result.data?.message) {
+      return result.data.message;
+    }
+    if (result.data?.error) {
+      return escapeHtml(cleanText(result.data.error));
+    }
+    const raw = cleanText(result.raw || '');
+    if (raw) {
+      return escapeHtml(raw);
+    }
+    return No response while attacking <strong>${escapeHtml(fallbackName)}</strong>.;
+  }
+
+  function isRetryableAttackFailure(result) {
+    const text = cleanText(
+      result?.messageText ||
+      result?.data?.message ||
+      result?.data?.error ||
+      result?.raw ||
+      ''
+    ).toLowerCase();
+    return text.includes('slow down') || text.includes('too quickly') || text.includes('take your time');
+  }
+
+  function openAttackModal(board, summary) {
+    const modal = board.querySelector('[data-role="attack-modal"]');
+    const summaryEl = board.querySelector('[data-role="attack-summary"]');
+    const listEl = board.querySelector('[data-role="attack-list"]');
+    if (!modal || !summaryEl || !listEl) {
+      return;
+    }
+
+    summaryEl.textContent = Processed: ${summary.processed} | Success: ${summary.success} | Failed: ${summary.failed};
+    listEl.innerHTML = (summary.results || []).map((result) => `
+      <div class="tm-sbw-result ${result.ok ? 'ok' : 'fail'}">
+        <div class="tm-sbw-result-head">
+          <div class="tm-sbw-result-id">#${escapeHtml(result.id)}</div>
+          <div class="tm-sbw-result-status">${result.ok ? 'OK' : 'FAILED'}</div>
+        </div>
+        <div class="tm-sbw-result-body">${result.html}</div>
+      </div>
+    `).join('');
+    modal.style.display = 'flex';
+  }
+
+  async function hydratePersonalDamage(monsters, rerender) {
+    if (!USER_ID) {
+      return;
+    }
+
+    const damageCache = createDamageCacheStore();
+    const queue = monsters.filter((monster) => monster.actionUrl && monster.personalDamage === null);
+
+    let changed = false;
+    queue.forEach((monster) => {
+      const cached = damageCache.get(monster);
+      if (cached !== null) {
+        monster.personalDamage = cached;
+        changed = true;
+      }
+    });
+    if (changed) {
+      rerender();
+    }
+
+    const pending = queue.filter((monster) => monster.personalDamage === null);
+    let completed = 0;
+    let lastRenderAt = 0;
+    const maybeRender = (force = false) => {
+      const now = Date.now();
+      if (force || completed % 4 === 0 || (now - lastRenderAt) > 200) {
+        lastRenderAt = now;
+        rerender();
+      }
+    };
+    await runWithConcurrency(pending, DAMAGE_FETCH_CONCURRENCY, async (monster) => {
+      try {
+        const damage = await fetchPersonalDamage(monster.actionUrl);
+        monster.personalDamage = damage;
+        damageCache.set(monster, damage);
+      } catch (_error) {
+        monster.personalDamage = 0;
+        damageCache.set(monster, 0);
+      }
+      completed += 1;
+      maybeRender();
+    });
+    if (pending.length > 0) {
+      maybeRender(true);
+    }
+  }
+
+  async function fetchPersonalDamage(actionUrl) {
+    const response = await fetch(actionUrl, { credentials: 'same-origin' });
+    const html = await response.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    const directValue = doc.getElementById('yourDamageValue')?.textContent;
+    const directParsed = parseDamageValue(directValue);
+    if (directParsed !== null) {
+      return directParsed;
+    }
+
+    const myLink = doc.querySelector(.leaderboard-panel a[href*="player.php?pid=${USER_ID}"]);
+    if (myLink) {
+      const row = myLink.closest('.lb-row');
+      const rowDamage = row?.querySelector('.lb-dmg')?.textContent;
+      const rowParsed = parseDamageValue(rowDamage);
+      if (rowParsed !== null) {
+        return rowParsed;
+      }
+    }
+
+    return 0;
+  }
+
+  function parseDamageValue(text) {
+    const cleaned = cleanText(text).replace(/DMG/gi, '').replace(/,/g, '');
+    const match = cleaned.match(/(\d+)/);
+    return match ? Number(match[1]) : null;
+  }
+
+  function parseDamageFromHtml(text) {
+    const normalized = String(text || '').replace(/,/g, '');
+    const dealt = normalized.match(/dealt[^0-9]*(\d+)/i);
+    return dealt ? Number(dealt[1]) : null;
+  }
+
+  function parseCurrentHp(hpText) {
+    const normalized = String(hpText || '').replace(/,/g, '');
+    const match = normalized.match(/(\d+)\s*\/\s*(\d+)/);
+    return match ? Number(match[1]) : 0;
+  }
+
+  function getLimitRule(monsterName, locationName) {
+    const monsterLower = cleanText(monsterName).toLowerCase();
+    const locationLower = cleanText(locationName).toLowerCase();
+    const rule = LIMIT_PRESETS.find((rule) =>
+      monsterLower.includes(rule.nameIncludes) &&
+      rule.locationIncludes.some((location) => locationLower.includes(location))
+    );
+    return rule ? { ...rule, ruleKey: ${rule.item}|${rule.nameIncludes}|${rule.locationIncludes.join(',')}|${rule.maxTargets}|${rule.targetDamage} } : null;
+  }
+
+  function hasReachedLimit(monster, usageMap) {
+    if (!monster.limitRule) {
+      return false;
+    }
+    return Number(monster.personalDamage || 0) >= Number(monster.limitRule.targetDamage || 0) || isRuleSlotLocked(monster, usageMap);
+  }
+
+  function isRuleSlotLocked(monster, usageMap) {
+    if (!monster.limitRule) {
+      return false;
+    }
+    const currentDamage = Number(monster.personalDamage || 0);
+    if (currentDamage > 0) {
+      return false;
+    }
+    const usage = usageMap.get(monster.limitRule.ruleKey) || { started: 0 };
+    return usage.started >= Number(monster.limitRule.maxTargets || 0);
+  }
+
+  function buildRuleUsageMap(monsters, quotaStore) {
+    const usageMap = new Map();
+    monsters.forEach((monster) => {
+      if (!monster.limitRule) {
+        return;
+      }
+      const key = monster.limitRule.ruleKey;
+      const usage = usageMap.get(key) || { started: 0, capped: 0 };
+      const personalDamage = Number(monster.personalDamage || 0);
+      // Consider a monster "started" if it has any personal damage, even if it was
+      // hit outside this script (or before quota-store tracking existed).
+      if (personalDamage > 0 || quotaStore.has(monster)) {
+        usage.started += 1;
+      }
+      if (personalDamage >= Number(monster.limitRule.targetDamage || 0)) {
+        usage.capped += 1;
+      }
+      usageMap.set(key, usage);
+    });
+    return usageMap;
+  }
+
+  function countUntouchedRuleMonsters(limitRule, monsters, usageMap) {
+    const usage = usageMap.get(limitRule.ruleKey) || { started: 0 };
+    const total = monsters.filter((monster) => monster.limitRule?.ruleKey === limitRule.ruleKey).length;
+    return Math.max(0, total - Number(usage.started || 0));
+  }
+
+  function countRuleTotalMonsters(limitRule, monsters) {
+    return monsters.filter((monster) =>
+      monster.limitRule?.ruleKey === limitRule.ruleKey
+    ).length;
+  }
+
+  function buildLimitSummary(monster, usageMap, allMonsters) {
+    if (!monster.limitRule) {
+      return Current: ${formatDamage(monster.personalDamage)};
+    }
+    const usage = usageMap.get(monster.limitRule.ruleKey) || { started: 0, capped: 0 };
+    const untouched = countUntouchedRuleMonsters(monster.limitRule, allMonsters, usageMap);
+    return ${monster.limitRule.item} ${monster.limitRule.maxTargets}x${shortDamage(monster.limitRule.targetDamage)} | hit today ${usage.started}/${monster.limitRule.maxTargets} | untouched ${untouched} | target ${formatDamage(monster.limitRule.targetDamage)} | current ${formatDamage(monster.personalDamage)};
+  }
+
+  function shortDamage(value) {
+    const num = Number(value || 0);
+    if (num >= 1000000 && num % 1000000 === 0) {
+      return ${num / 1000000}M;
+    }
+    if (num >= 1000 && num % 1000 === 0) {
+      return ${num / 1000}K;
+    }
+    return formatDamage(num);
+  }
+
+  function pickBestQuotaStamina(remainingDamage, oneStamEstimate, currentHp) {
+    const baseline = Math.max(1, Number(oneStamEstimate || 0));
+    const options = [1, 10, 50, 100, 200].map((stamina) => ({
+      stamina,
+      estimatedDamage: baseline * stamina
+    }));
+    const oneStam = options[0];
+    const hpLimit = Math.max(0, Number(currentHp || 0));
+    const mustOvershootToQualify = hpLimit > 0 && hpLimit < remainingDamage;
+
+    // Endgame cleanup: once we're within about 10 normal hits, use 1-stam only
+    // and keep going until the actual tracked damage reaches/exceeds the target.
+    // But do not do that when the monster is so low HP that we must overshoot
+    // the target on the killing hit to still qualify.
+    if (!mustOvershootToQualify && remainingDamage <= baseline * 10) {
+      return oneStam;
+    }
+
+    // If the monster is lower than the remaining target gap, choose the smallest
+    // supported hit that is expected to clear the damage target, not the HP.
+    if (mustOvershootToQualify) {
+      const oversToTarget = options
+        .filter((option) => option.estimatedDamage >= remainingDamage)
+        .sort((a, b) => {
+          const overA = a.estimatedDamage - remainingDamage;
+          const overB = b.estimatedDamage - remainingDamage;
+          if (overA !== overB) {
+            return overA - overB;
+          }
+          return a.stamina - b.stamina;
+        });
+
+      if (oversToTarget.length > 0) {
+        return oversToTarget[0];
+      }
+
+      return options.sort((a, b) => b.estimatedDamage - a.estimatedDamage)[0] || oneStam;
+    }
+
+    // Prefer the largest hit that still leaves at least one 1-stam cleanup hit.
+    const safeUnder = options
+      .filter((option) => option.estimatedDamage < remainingDamage)
+      .filter((option) => (remainingDamage - option.estimatedDamage) >= baseline)
+      .sort((a, b) => b.estimatedDamage - a.estimatedDamage);
+
+    if (safeUnder.length > 0) {
+      return safeUnder[0];
+    }
+
+    // If nothing fits that rule, use the smallest over to finish.
+    const overs = options
+      .filter((option) => option.estimatedDamage >= remainingDamage)
+      .sort((a, b) => {
+        const overA = a.estimatedDamage - remainingDamage;
+        const overB = b.estimatedDamage - remainingDamage;
+        if (overA !== overB) {
+          return overA - overB;
+        }
+        return a.stamina - b.stamina;
+      });
+
+    if (overs.length > 0) {
+      return overs[0];
+    }
+
+    return options.sort((a, b) => b.estimatedDamage - a.estimatedDamage)[0] || oneStam;
+  }
+
+  function summaryPill(text, extraClass = '') {
+    return <span class="tm-sbw-summary-pill ${extraClass}">${escapeHtml(text)}</span>;
+  }
+
+  function renderError(message) {
+    let board = document.getElementById(PANEL_ID);
+    if (!board) {
+      board = document.createElement('section');
+      board.id = PANEL_ID;
+      board.className = 'panel tm-sbw-board';
+      const anchor = document.querySelector('.mapframe')?.closest('.panel');
+      if (anchor) {
+        anchor.insertAdjacentElement('afterend', board);
+      } else {
+        document.body.appendChild(board);
+      }
+    }
+
+    board.innerHTML = <div class="h">All Shadowbridge Monsters</div><div class="tm-sbw-error">${escapeHtml(message)}</div>;
+  }
+
+  function injectStyles() {
+    if (document.getElementById(STYLE_ID)) {
+      return;
+    }
+
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `
+      body.tm-sbw-map-page{
+        /* Prevent weird extra whitespace at the bottom on some layouts */
+        min-height: 0 !important;
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
+      }
+      body.tm-sbw-map-page .panel{
+        min-height: 0 !important;
+      }
+      body.tm-sbw-map-page .wrap{
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
+      }
+      .tm-sbw-board {
+        margin-top: 14px;
+      }
+      .tm-sbw-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .tm-sbw-sub {
+        color: #94a3b8;
+        font-size: 13px;
+        margin-top: 4px;
+      }
+      .tm-sbw-summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .tm-sbw-qol {
+        margin-top: 16px;
+        display: grid;
+        gap: 12px;
+      }
+
+      /* ===== Wave-style Multi Target layout (D1) ===== */
+      .tm-sbw-board .qol-top{
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+      }
+      .tm-sbw-board .qol-filters{
+        display:flex;
+        flex-wrap:wrap;
+        align-items:center;
+        gap:10px;
+        justify-content:flex-start;
+        width:100%;
+        padding:14px;
+        border-radius:12px;
+        background:#171923;
+        border:1px solid #232437;
+      }
+      .tm-sbw-board .qol-title{
+        color:#FFD369;
+        font-weight:800;
+        white-space:nowrap;
+        margin-right:6px;
+      }
+      .tm-sbw-board .qol-filters label{
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        color:#cdd1ea;
+        white-space:nowrap;
+        font-size:13px;
+      }
+      .tm-sbw-board .qol-select-actions{
+        display:flex;
+        gap:10px;
+        flex-wrap:wrap;
+        align-items:center;
+      }
+      .tm-sbw-board .qol-attacks{
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+        align-items:stretch;
+        justify-content:flex-start;
+      }
+      .tm-sbw-board .select-wrap{
+        position:relative;
+        display:inline-flex;
+        align-items:center;
+      }
+      .tm-sbw-board .modern-select{
+        appearance:none;
+        -webkit-appearance:none;
+        -moz-appearance:none;
+
+        padding:10px 44px 10px 12px;
+        border-radius:12px;
+        border:1px solid rgba(140,160,255,.22);
+        background: linear-gradient(180deg, rgba(30,33,50,.92), rgba(20,22,34,.92));
+        color:#e6e9ff;
+        font-weight:800;
+        font-size:13px;
+        line-height:1.1;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 10px 24px rgba(0,0,0,.55);
+        cursor:pointer;
+      }
+      .tm-sbw-board .select-wrap::after{
+        content:"";
+        position:absolute;
+        right:12px;
+        width:10px;
+        height:10px;
+        pointer-events:none;
+        border-right:2px solid rgba(230,233,255,.65);
+        border-bottom:2px solid rgba(230,233,255,.65);
+        transform: rotate(45deg);
+        opacity:.9;
+      }
+      .tm-sbw-board .modern-select option{
+        background:#141625;
+        color:#e6e9ff;
+      }
+
+      .tm-sbw-board .tm-sbw-tools{
+        display:flex;
+        flex-wrap:wrap;
+        gap:10px;
+        align-items:center;
+      }
+
+      /* Attack buttons (match Wave-style action colors) */
+      .tm-sbw-board .btnQuickJoinAttack{
+        background: linear-gradient(180deg, #2f7dff, #275ad6) !important;
+        border-color: #2f7dff !important;
+        color:#fff !important;
+        box-shadow: 0 10px 22px rgba(47,125,255,.22), 0 0 0 2px rgba(0,0,0,.18) inset !important;
+      }
+      .tm-sbw-board .btnAttackStrat{
+        background: linear-gradient(180deg, #7c3aed, #4c1d95) !important;
+        border-color: #7c3aed !important;
+        color:#fff !important;
+        box-shadow: 0 10px 22px rgba(124,58,237,.22), 0 0 0 2px rgba(0,0,0,.18) inset !important;
+      }
+
+      /* Strategy modal (Wave-style) */
+      .tm-sbw-board .attack-strat-overlay{
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.6);
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+      .tm-sbw-board .attack-strat-modal{
+        background: #1f2233;
+        padding: 16px;
+        border-radius: 12px;
+        width: 470px;
+        max-width: 95vw;
+        color: #e6e8ff;
+        box-shadow: 0 10px 30px rgba(0,0,0,.4);
+        max-height: 75vh;
+        overflow: auto;
+        border: 1px solid rgba(255,255,255,0.10);
+      }
+      .tm-sbw-board .attack-strat-title{ margin: 0 0 10px; }
+      .tm-sbw-board .attack-strat-picker{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+      .tm-sbw-board .attack-strat-label{ font-size:12px; color:#9aa0be; margin-bottom:6px; }
+      .tm-sbw-board .attack-strat-footer{ margin-top: 14px; text-align: right; }
+      .tm-sbw-board .attack-strat-checkbox{ width:16px; height:16px; }
+      .tm-sbw-board .attack-strat-asterion-input, .tm-sbw-board .attack-strat-damage-limit-input{
+        width: 120px;
+        padding: 2px 6px;
+        border-radius: 6px;
+        border: 1px solid #2d3154;
+        background: #2d3154;
+        color: #e6e8ff;
+      }
+      .tm-sbw-board .attack-strat-chips{ display:flex; flex-direction:column; gap:6px; }
+      .tm-sbw-board .attack-strat-chip{
+        display:flex;
+        align-items:center;
+        background:#2d3154;
+        padding:6px 10px;
+        border-radius:10px;
+        font-size:12px;
+        width:100%;
+        box-sizing:border-box;
+      }
+      .tm-sbw-board .attack-strat-chip-label{ flex:1; text-transform:capitalize; }
+      .tm-sbw-board .attack-strat-chip-controls{ display:flex; align-items:center; gap:5px; }
+      .tm-sbw-board .attack-strat-chip-btn{
+        background:none;
+        border:none;
+        cursor:pointer;
+        color:#9aa0be;
+        font-size:12px;
+        padding:5px 12px;
+        background-color:#1f2233;
+        border-radius:8px;
+      }
+      .tm-sbw-board .attack-strat-chip-btn.is-disabled{ opacity:.3; pointer-events:none; }
+      .tm-sbw-board .attack-strat-chip-remove{ color:#ef4444; }
+      .tm-sbw-board .total-stam-cost{
+        color:#FFD369;
+        font-weight:700;
+        text-shadow:0 0 6px rgba(255, 211, 105, .6);
+      }
+      .tm-sbw-qol-top {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .tm-sbw-filters {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        width: 100%;
+        padding: 14px;
+        border-radius: 12px;
+        background: #171923;
+        border: 1px solid #232437;
+      }
+      .tm-sbw-title {
+        font-weight: 800;
+        color: #e6e9ff;
+        margin-right: 4px;
+      }
+      .tm-sbw-select-wrap {
+        position: relative;
+      }
+      .tm-sbw-modern-select {
+        min-width: 220px;
+        appearance: none;
+        border-radius: 10px;
+        border: 1px solid #2b2d44;
+        background: #11131b;
+        color: #e6e9ff;
+        padding: 10px 36px 10px 12px;
+      }
+      .tm-sbw-filters label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #cfd4ff;
+        font-size: 13px;
+      }
+      .tm-sbw-select-actions,
+      .tm-sbw-selection-bar,
+      .tm-sbw-mini-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .tm-sbw-location-filter {
+        background: #191a24;
+        padding: 16px;
+        border-radius: 12px;
+        border: 1px solid #232437;
+      }
+      .tm-sbw-mini-actions {
+        margin-bottom: 10px;
+        color: #8ea2ff;
+        font-size: 12px;
+      }
+      .tm-sbw-mini-actions span {
+        cursor: pointer;
+      }
+      .tm-sbw-location-chips {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 10px;
+      }
+      .tm-sbw-chip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #11131b;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid #232437;
+        cursor: pointer;
+        color: #e6e9ff;
+      }
+      .tm-sbw-chip strong {
+        color: #8ea2ff;
+        margin-left: 6px;
+      }
+      .tm-sbw-selection-bar {
+        justify-content: space-between;
+        padding: 0 2px;
+      }
+      .tm-sbw-attack-controls {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .tm-sbw-stam-input {
+        width: 90px;
+        border-radius: 10px;
+        border: 1px solid #2b2d44;
+        background: #11131b;
+        color: #e6e9ff;
+        padding: 10px 12px;
+      }
+      .tm-sbw-stam-preset {
+        min-width: 54px;
+      }
+      .tm-sbw-selected-count {
+        color: #cfd4ff;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .tm-sbw-model-line {
+        color: #93c5fd;
+        font-size: 12px;
+        margin-top: -2px;
+      }
+      .tm-sbw-run-line {
+        color: #fcd34d;
+        font-size: 12px;
+        min-height: 16px;
+      }
+      .tm-sbw-multi-select-box {
+        max-height: 640px;
+        overflow-y: auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 12px;
+        background: #11131b;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid #232437;
+      }
+      .tm-sbw-summary-pill,
+      .tm-sbw-badge,
+      .tm-sbw-location-count {
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 12px;
+        background: rgba(15,23,42,0.45);
+      }
+      .tm-sbw-summary-pill.alive,
+      .tm-sbw-badge.alive {
+        border-color: rgba(34,197,94,0.45);
+        color: #86efac;
+      }
+      .tm-sbw-summary-pill.dead,
+      .tm-sbw-badge.dead {
+        border-color: rgba(248,113,113,0.45);
+        color: #fca5a5;
+      }
+      .tm-sbw-monster-chip {
+        display: block;
+        cursor: pointer;
+      }
+      .tm-sbw-monster-chip > input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .tm-sbw-monster-card {
+        border-radius: 12px;
+        padding: 12px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(15,23,42,0.55);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+      }
+      .tm-sbw-monster-chip > input:checked + .tm-sbw-monster-card {
+        border-color: rgba(96,165,250,0.8);
+        box-shadow: 0 0 0 2px rgba(59,130,246,0.25);
+        transform: translateY(-1px);
+      }
+      .tm-sbw-monster-chip.dead .tm-sbw-monster-card {
+        opacity: 0.8;
+      }
+      .tm-sbw-monster-top {
+        display: flex;
+        gap: 10px;
+      }
+      .tm-sbw-monster-img {
+        width: 64px;
+        height: 64px;
+        object-fit: cover;
+        border-radius: 10px;
+        flex: 0 0 auto;
+      }
+      .tm-sbw-monster-main {
+        min-width: 0;
+        flex: 1;
+      }
+      .tm-sbw-monster-name {
+        font-weight: 700;
+        line-height: 1.3;
+      }
+      .tm-sbw-monster-meta,
+      .tm-sbw-stats,
+      .tm-sbw-monster-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .tm-sbw-stats {
+        font-size: 12px;
+        color: #cbd5e1;
+      }
+      .tm-sbw-user-dmg {
+        color: #f87171;
+        font-weight: 800;
+      }
+      .tm-sbw-limit-note {
+        color: #fbbf24;
+        font-weight: 700;
+      }
+      .tm-sbw-limit-note.done {
+        color: #86efac;
+      }
+      .tm-sbw-limit-note.locked {
+        color: #f59e0b;
+      }
+      .tm-sbw-action {
+        text-decoration: none;
+      }
+      .tm-sbw-error {
+        margin-top: 12px;
+        color: #fca5a5;
+      }
+      .tm-sbw-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        background: rgba(0,0,0,0.85);
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+      }
+      .tm-sbw-modal-box {
+        width: 720px;
+        max-width: 95vw;
+        background: #131521;
+        border: 1px solid #232437;
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+      }
+      .tm-sbw-modal-head {
+        margin: 0 0 10px;
+        color: #e6e9ff;
+        font-size: 22px;
+      }
+      .tm-sbw-modal-note {
+        color: #9aa0be;
+        font-size: 13px;
+      }
+      .tm-sbw-modal-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 10px;
+        max-height: 60vh;
+        overflow-y: auto;
+      }
+      .tm-sbw-modal-actions {
+        margin-top: 14px;
+        display: flex;
+        justify-content: flex-end;
+      }
+      .tm-sbw-result {
+        background: #1e1e2f;
+        border-radius: 10px;
+        padding: 10px 12px;
+        border: 1px solid rgba(255,255,255,0.12);
+      }
+      .tm-sbw-result.ok {
+        border-color: rgba(0,255,140,.25);
+      }
+      .tm-sbw-result.fail {
+        border-color: rgba(248,113,113,.35);
+      }
+      .tm-sbw-result-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+      }
+      .tm-sbw-result-id {
+        font-weight: 700;
+        color: #e6e9ff;
+      }
+      .tm-sbw-result-status {
+        font-weight: 800;
+        color: #7cffb8;
+      }
+      .tm-sbw-result.fail .tm-sbw-result-status {
+        color: #fca5a5;
+      }
+      .tm-sbw-result-body {
+        margin-top: 6px;
+        color: #9aa0be;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .tm-sbw-dot {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        min-width: 28px;
+        height: 28px;
+        padding: 0 8px;
+        border: 2px solid rgba(251,191,36,0.95);
+        border-radius: 999px;
+        background: rgba(15,23,42,0.92);
+        color: #fde68a;
+        font-weight: 700;
+        font-size: 12px;
+        z-index: 9;
+        cursor: pointer;
+        box-shadow: 0 0 0 3px rgba(15,23,42,0.4);
+      }
+      .tm-sbw-dot:hover {
+        filter: brightness(1.1);
+      }
+
+      /* ============================
+         Wave 3-style UI + sizing
+         ============================ */
+      .tm-sbw-board{
+        font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+      }
+
+      /* Buttons (Wave 3 gold) */
+      .tm-sbw-board .btn{
+        border-radius: 10px !important;
+        padding: 10px 12px !important;
+        font-size: 13px !important;
+        font-weight: 800 !important;
+        line-height: 1.2 !important;
+        white-space: nowrap !important;
+
+        /* Muted steel-blue (dungeon theme): not too bright, not too dark */
+        background: linear-gradient(180deg, #3b6f9b, #2a4f71) !important;
+        color: #eaf4ff !important;
+        border: 1px solid rgba(160,210,255,.22) !important;
+        box-shadow: 0 10px 22px rgba(0,0,0,.55), 0 0 0 2px rgba(0,0,0,.22) inset !important;
+        cursor: pointer !important;
+        transition: filter .12s ease, transform .06s ease !important;
+      }
+      .tm-sbw-board .btn:hover{ filter: brightness(1.06) !important; transform: translateY(-1px) !important; }
+      .tm-sbw-board .btn:active{ filter: brightness(0.98) !important; transform: translateY(0) !important; }
+      .tm-sbw-board .btn:disabled{ opacity:.6 !important; cursor:not-allowed !important; transform:none !important; }
+
+      /* Make selects readable */
+      .tm-sbw-board select.tm-sbw-modern-select{
+        background: #11131b !important;
+        color: #e6e9ff !important;
+        border: 1px solid rgba(255,255,255,0.14) !important;
+        font-weight: 800 !important;
+      }
+      .tm-sbw-board select.tm-sbw-modern-select option{
+        background: #11131b !important;
+        color: #e6e9ff !important;
+      }
+
+      /* Monster cards (closer to Wave 3 monster-card look) */
+      .tm-sbw-monster-card{
+        background: radial-gradient(120% 140% at 20% 0%, rgba(219,186,107,.08), rgba(0,0,0,0) 50%),
+                    linear-gradient(180deg, rgba(25,26,30,.95), rgba(18,19,23,.95)) !important;
+        border: 1px solid rgba(219,186,107,.18) !important;
+        box-shadow:
+          0 10px 24px rgba(0,0,0,.65),
+          0 0 0 1px rgba(0,0,0,.5) inset,
+          0 0 22px rgba(219,186,107,.06) inset !important;
+        border-radius: 14px !important;
+        transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease !important;
+      }
+      .tm-sbw-monster-chip:hover .tm-sbw-monster-card{
+        transform: translateY(-2px);
+        box-shadow:
+          0 16px 32px rgba(0,0,0,.7),
+          0 0 0 1px rgba(219,186,107,.25) inset,
+          0 0 28px rgba(219,186,107,.10) inset !important;
+      }
+      .tm-sbw-monster-chip > input:checked + .tm-sbw-monster-card{
+        border-color: rgba(219,186,107,.55) !important;
+        box-shadow: 0 0 0 2px rgba(219,186,107,.20) inset, 0 16px 32px rgba(0,0,0,.7) !important;
+      }
+      .tm-sbw-monster-img{
+        outline: 1px solid rgba(219,186,107,.15);
+        border: 1px solid rgba(255,255,255,.08);
+        box-shadow: 0 6px 18px rgba(0,0,0,.55);
+      }
+      .tm-sbw-monster-name{ color:#e6e9ff; font-weight:900; }
+      .tm-sbw-selected-count{ color:#cfd4ff; font-weight:900; }
+
+      /* Hide any legacy room/location UI if present */
+      .tm-sbw-location-filter,
+      .tm-sbw-dot{ display:none !important; }
+
+      /* Size selector affects cards + icons together */
+      .tm-sbw-board[data-size="small"] .tm-sbw-multi-select-box{
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)) !important;
+      }
+      .tm-sbw-board[data-size="tiny"] .tm-sbw-multi-select-box{
+        grid-template-columns: repeat(auto-fill, minmax(205px, 1fr)) !important;
+      }
+      .tm-sbw-board[data-size="small"] .tm-sbw-monster-card{ padding: 10px !important; border-radius: 12px !important; }
+      .tm-sbw-board[data-size="tiny"]  .tm-sbw-monster-card{ padding: 8px !important; border-radius: 12px !important; }
+      .tm-sbw-board[data-size="small"] .tm-sbw-monster-img{ width: 54px !important; height: 54px !important; border-radius: 12px !important; }
+      .tm-sbw-board[data-size="tiny"]  .tm-sbw-monster-img{ width: 44px !important; height: 44px !important; border-radius: 10px !important; }
+      .tm-sbw-board[data-size="small"] .tm-sbw-monster-name{ font-size: 13.5px !important; }
+      .tm-sbw-board[data-size="tiny"]  .tm-sbw-monster-name{ font-size: 13px !important; }
+      .tm-sbw-board[data-size="small"] .tm-sbw-stats{ font-size: 11.5px !important; }
+      .tm-sbw-board[data-size="tiny"]  .tm-sbw-stats{ font-size: 11px !important; }
+      .tm-sbw-board[data-size="small"] .btn{ padding: 8px 10px !important; font-size: 12px !important; }
+      .tm-sbw-board[data-size="tiny"]  .btn{ padding: 7px 9px !important; font-size: 12px !important; }
+      @media (max-width: 700px) {
+        .tm-sbw-dot {
+          min-width: 24px;
+          height: 24px;
+          font-size: 11px;
+        }
+        .tm-sbw-filters,
+        .tm-sbw-selection-bar {
+          align-items: stretch;
+        }
+        .tm-sbw-modern-select,
+        .tm-sbw-select-wrap,
+        .tm-sbw-select-actions,
+        .tm-sbw-select-actions .btn,
+        .tm-sbw-selection-bar .btn,
+        .tm-sbw-attack-controls,
+        .tm-sbw-attack-controls .btn,
+        .tm-sbw-stam-input {
+          width: 100%;
+        }
+        .tm-sbw-multi-select-box,
+        .tm-sbw-location-chips {
+          grid-template-columns: 1fr;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function cleanText(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function formatDamage(value) {
+    if (value === null || value === undefined) {
+      return '...';
+    }
+    return new Intl.NumberFormat().format(Number(value) || 0);
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function cssEscape(value) {
+    if (window.CSS?.escape) {
+      return window.CSS.escape(value);
+    }
+
+    return String(value).replace(/"/g, '\\"');
+  }
+
+  function getUserId() {
+    const demonMatch = document.cookie.match(/(?:^|;\s*)demon=(\d+)/);
+    return demonMatch ? demonMatch[1] : '';
+  }
+
+  function createQuotaStore() {
+    let cycleKey = getServerCycleKey();
+    let state = readQuotaState(cycleKey);
+
+    const ensureCurrentCycle = () => {
+      const nextCycleKey = getServerCycleKey();
+      if (nextCycleKey !== cycleKey) {
+        cycleKey = nextCycleKey;
+        state = readQuotaState(cycleKey);
+      }
+    };
+
+    return {
+      has(monster) {
+        ensureCurrentCycle();
+        if (!monster.limitRule) {
+          return false;
+        }
+        const monsterId = String(monster.id || '');
+        if (!monsterId) {
+          return false;
+        }
+        const ruleList = state.rules[monster.limitRule.ruleKey] || [];
+        return ruleList.includes(monsterId);
+      },
+      mark(monster) {
+        ensureCurrentCycle();
+        if (!monster.limitRule) {
+          return;
+        }
+        const monsterId = String(monster.id || '');
+        if (!monsterId) {
+          return;
+        }
+        const ruleKey = monster.limitRule.ruleKey;
+        const ruleList = state.rules[ruleKey] || [];
+        if (!ruleList.includes(monsterId)) {
+          ruleList.push(monsterId);
+          state.rules[ruleKey] = ruleList;
+          writeQuotaState(state);
+        }
+      }
+    };
+  }
+
+  function createDamageModelStore() {
+    const state = readDamageModelState();
+
+    return {
+      addSample(value) {
+        const num = Number(value || 0);
+        if (!Number.isFinite(num) || num <= 0) {
+          return;
+        }
+        state.samples.push(num);
+        state.samples = state.samples.slice(-30);
+        writeDamageModelState(state);
+      },
+      getEstimate() {
+        const samples = state.samples.filter((value) => Number.isFinite(value) && value > 0).sort((a, b) => a - b);
+        if (samples.length === 0) {
+          return 0;
+        }
+        if (samples.length < 3) {
+          return Math.round(samples.reduce((sum, value) => sum + value, 0) / samples.length);
+        }
+        const trimmed = samples.slice(0, Math.max(1, Math.ceil(samples.length * 0.8)));
+        return Math.round(trimmed.reduce((sum, value) => sum + value, 0) / trimmed.length);
+      },
+      hasEstimate() {
+        return this.getEstimate() > 0;
+      },
+      describe() {
+        if (!this.hasEstimate()) {
+          return 'not learned yet';
+        }
+        return ${formatDamage(this.getEstimate())} from ${state.samples.length} sample(s), high outliers ignored;
+      }
+    };
+  }
+
+  function createDamageCacheStore() {
+    const state = readDamageCacheState();
+
+    return {
+      get(monster) {
+        const key = getMonsterCacheKey(monster);
+        if (!key) {
+          return null;
+        }
+        const entry = state.values[key];
+        if (!entry) {
+          return null;
+        }
+        if (entry.cycleKey !== getServerCycleKey()) {
+          delete state.values[key];
+          writeDamageCacheState(state);
+          return null;
+        }
+        return Number(entry.damage || 0);
+      },
+      set(monster, damage) {
+        const key = getMonsterCacheKey(monster);
+        if (!key) {
+          return;
+        }
+        state.values[key] = {
+          damage: Number(damage || 0),
+          cycleKey: getServerCycleKey()
+        };
+        writeDamageCacheState(state);
+      }
+    };
+  }
+
+  function getMonsterCacheKey(monster) {
+    if (!monster) {
+      return '';
+    }
+    return [monster.instanceId || '', monster.dgmid || '', monster.id || '', USER_ID || ''].join('|');
+  }
+
+  function readDamageCacheState() {
+    try {
+      const raw = window.localStorage.getItem(DAMAGE_CACHE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && parsed.values && typeof parsed.values === 'object') {
+        return parsed;
+      }
+    } catch (_error) {
+      // ignore bad storage
+    }
+    const fresh = { values: {} };
+    writeDamageCacheState(fresh);
+    return fresh;
+  }
+
+  function writeDamageCacheState(state) {
+    try {
+      window.localStorage.setItem(DAMAGE_CACHE_KEY, JSON.stringify(state));
+    } catch (_error) {
+      // ignore storage failures
+    }
+  }
+
+  function readDamageModelState() {
+    try {
+      const raw = window.localStorage.getItem(DAMAGE_MODEL_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && Array.isArray(parsed.samples)) {
+        return parsed;
+      }
+    } catch (_error) {
+      // ignore bad storage
+    }
+    const fresh = { samples: [] };
+    writeDamageModelState(fresh);
+    return fresh;
+  }
+
+  function writeDamageModelState(state) {
+    try {
+      window.localStorage.setItem(DAMAGE_MODEL_KEY, JSON.stringify(state));
+    } catch (_error) {
+      // ignore storage failures
+    }
+  }
+
+  function getServerCycleKey() {
+    const serverEl = document.getElementById('server_time');
+    const epoch = Number(serverEl?.getAttribute('data-epoch') || Math.floor(Date.now() / 1000));
+    const offsetSeconds = Number(serverEl?.getAttribute('data-tzoff') || 0);
+    const bootClientMs = window.__tmShadowbridgeBootClientMs || Date.now();
+    const bootServerEpoch = window.__tmShadowbridgeBootServerEpoch || epoch;
+    if (!window.__tmShadowbridgeBootClientMs) {
+      window.__tmShadowbridgeBootClientMs = bootClientMs;
+      window.__tmShadowbridgeBootServerEpoch = bootServerEpoch;
+    }
+    const elapsedMs = Date.now() - window.__tmShadowbridgeBootClientMs;
+    const serverMs = ((window.__tmShadowbridgeBootServerEpoch || epoch) * 1000) + elapsedMs + (offsetSeconds * 1000);
+    const rolloverMs = 6 * 60 * 60 * 1000;
+    const shifted = new Date(serverMs - rolloverMs);
+    const year = shifted.getUTCFullYear();
+    const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(shifted.getUTCDate()).padStart(2, '0');
+    return ${year}-${month}-${day};
+  }
+
+  function readQuotaState(cycleKey) {
+    try {
+      const raw = window.localStorage.getItem(QUOTA_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && parsed.cycleKey === cycleKey && parsed.rules && typeof parsed.rules === 'object') {
+        return parsed;
+      }
+    } catch (_error) {
+      // ignore broken storage and rebuild
+    }
+    const fresh = { cycleKey, rules: {} };
+    writeQuotaState(fresh);
+    return fresh;
+  }
+
+  function writeQuotaState(state) {
+    try {
+      window.localStorage.setItem(QUOTA_STORAGE_KEY, JSON.stringify(state));
+    } catch (_error) {
+      // ignore storage failures
+    }
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  async function runWithConcurrency(items, limit, worker) {
+    const queue = Array.from(items);
+    const runners = Array.from({ length: Math.max(1, Math.min(limit, queue.length || 1)) }, async () => {
+      while (queue.length > 0) {
+        const item = queue.shift();
+        if (item === undefined) {
+          return;
+        }
+        await worker(item);
+      }
+    });
+    await Promise.all(runners);
+  }
+
+  function slugify(value) {
+    return cleanText(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'location';
+  }
+})();
+
+
+// ============================================================
+// Module: Solo PvP Bot (demonicscans-pvp.user.js)
+// ============================================================
+
+(() => {
+  'use strict';
+
+  // When merged into the All-in-One script, this file still runs on every page.
+  // Hard-gate it so it only does anything on solo PvP pages (no console noise elsewhere).
+  const path = String(window.location.pathname || '');
+  const IS_LOBBY = /\/pvp\.php$/i.test(path);
+  const IS_BATTLE = /\/pvp_battle\.php$/i.test(path);
+  if (!IS_LOBBY && !IS_BATTLE) return;
+
+  const STORAGE_KEY = 'tm_pvp_bot_active_v1';
+  const LAST_ACTION_KEY = 'tm_pvp_bot_last_action_at_v1';
+  const ACTION_GAP_MS = 1500;
+  const LOBBY_RETRY_MS = 2000;
+  const BATTLE_RETRY_MS = 1000;
+
+  let loopTimer = 0;
+
+  const isActive = () => window.localStorage.getItem(STORAGE_KEY) === 'true';
+
+  const setActive = (value) => {
+    window.localStorage.setItem(STORAGE_KEY, value ? 'true' : 'false');
+  };
+
+  const now = () => Date.now();
+
+  const canAct = () => {
+    const last = Number(window.localStorage.getItem(LAST_ACTION_KEY) || 0);
+    return (now() - last) >= ACTION_GAP_MS;
+  };
+
+  const markActed = () => {
+    window.localStorage.setItem(LAST_ACTION_KEY, String(now()));
+  };
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const setStatus = (message) => {
+    console.log('[Solo PvP Bot]', message);
+  };
+
+  function isLobbyPage() {
+    return IS_LOBBY;
+  }
+
+  function isBattlePage() {
+    return IS_BATTLE;
+  }
+
+  function ensureStyles() {
+    const id = 'tmSoloPvpBotStyles';
+    if (document.getElementById(id)) return;
+    const st = document.createElement('style');
+    st.id = id;
+    st.textContent = `
+      .tm-solo-pvp-bot-btn{
+        background: linear-gradient(180deg, #FFD369, #DBA23A) !important;
+        color: #111 !important;
+        border: 1px solid rgba(0,0,0,0.25) !important;
+        font-weight: 900 !important;
+      }
+      .tm-solo-pvp-bot-btn:hover{
+        filter: brightness(1.05);
+      }
+      .tm-solo-pvp-bot-btn.tm-off{
+        opacity: .75;
+      }
+      .tm-solo-pvp-bot-inline{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        flex-wrap:wrap;
+      }
+    `;
+    document.head.appendChild(st);
+  }
+
+  function findSoloMatchButton() {
+    // Current UI uses .js-matchmake[data-ladder="solo"] (snapshot: "Find Solo Match")
+    const btn = document.querySelector('.js-matchmake[data-ladder="solo"]');
+    if (btn) return btn;
+
+    // Fallback by text.
+    const candidates = Array.from(document.querySelectorAll('button, a'));
+    return candidates.find((el) => {
+      const t = String(el.textContent || '').toLowerCase();
+      return (t.includes('solo') && (t.includes('find') || t.includes('join') || t.includes('continue'))) && el instanceof HTMLElement;
+    }) || null;
+  }
+
+  function injectInlineButton() {
+    if (!isLobbyPage()) return;
+    if (document.getElementById('tmSoloPvpBotBtn')) return;
+
+    const soloBtn = findSoloMatchButton();
+    if (!soloBtn || !soloBtn.parentElement) return;
+
+    ensureStyles();
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'tmSoloPvpBotBtn';
+
+    // Match the exact style/layout of the Solo join/continue button.
+    btn.className = soloBtn.className || '';
+    btn.classList.add('tm-solo-pvp-bot-btn');
+
+    function syncLabel() {
+      const on = isActive();
+      btn.textContent = on ? 'Solo Bot: ON' : 'Solo Bot: OFF';
+      btn.classList.toggle('tm-off', !on);
+    }
+
+    btn.addEventListener('click', () => {
+      setActive(!isActive());
+      syncLabel();
+      if (isActive()) queueNext(150);
+    });
+
+    // Insert left of the Solo join/continue button.
+    soloBtn.parentElement.insertBefore(btn, soloBtn);
+
+    // Try to keep spacing consistent with the page's button-row layout.
+    const row = soloBtn.closest('.button-row') || soloBtn.parentElement;
+    if (row && row instanceof HTMLElement) {
+      const cs = window.getComputedStyle(row);
+      if (cs && cs.display !== 'flex') {
+        row.classList.add('tm-solo-pvp-bot-inline');
+      }
+    }
+
+    // Place tiny status text after our button (still before the join button).
+    syncLabel();
+  }
+
+  const clickIfPossible = (element, reason) => {
+    if (!element || element.disabled || !canAct()) return false;
+    markActed();
+    setStatus(reason);
+    element.click();
+    return true;
+  };
+
+  const textIncludes = (element, value) => {
+    return !!element && String(element.textContent || '').toLowerCase().includes(String(value || '').toLowerCase());
+  };
+
+  const parseSoloTokens = () => {
+    const pills = Array.from(document.querySelectorAll('.info-pill'));
+    const tokenPill = pills.find((pill) => /tokens/i.test(pill.textContent || ''));
+    if (!tokenPill) return null;
+
+    const valueNode = tokenPill.querySelector('span');
+    const raw = valueNode ? valueNode.textContent : tokenPill.textContent;
+    const digits = String(raw || '').replace(/[^\d]/g, '');
+    if (!digits) return null;
+    return Number(digits);
+  };
+
+  const battleEnded = () => {
+    const badge = document.getElementById('matchStatusBadge');
+    const note = document.getElementById('noteText');
+    const rewardsModal = document.getElementById('rewardsModal');
+
+    if (badge && /victory|battle ended/i.test(badge.textContent || '')) return true;
+    if (note && /won this season match|battle ended|season match ended/i.test(note.textContent || '')) return true;
+    if (rewardsModal && rewardsModal.classList.contains('show')) return true;
+    return false;
+  };
+
+  const autoPlayEnabled = () => {
+    const autoBtn = document.getElementById('autoPlayBtn');
+    return !!autoBtn && (autoBtn.classList.contains('active') || textIncludes(autoBtn, 'on'));
+  };
+
+  const queueNext = (ms) => {
+    window.clearTimeout(loopTimer);
+    loopTimer = window.setTimeout(runTick, ms);
+  };
+
+  const handleLobby = async () => {
+    const tokens = parseSoloTokens();
+    if (tokens !== null && tokens <= 0) {
+      setActive(false);
+      const toggleBtn = document.getElementById('pvpBotToggle');
+      if (toggleBtn) {
+        toggleBtn.textContent = 'Solo PvP Bot OFF';
+        toggleBtn.style.background = '#963838';
+      }
+      setStatus('Solo PvP tokens are at 0. Bot stopped.');
+      queueNext(1000);
+      return;
+    }
+
+    const soloBtn = document.querySelector('.js-matchmake[data-ladder="solo"]');
+    if (soloBtn && !soloBtn.disabled) {
+      if (clickIfPossible(soloBtn, 'Joining solo PvP match...')) {
+        queueNext(ACTION_GAP_MS);
+        return;
+      }
+    }
+
+    setStatus('Waiting for solo match button...');
+    await sleep(LOBBY_RETRY_MS);
+    queueNext(250);
+  };
+
+  const handleBattle = async () => {
+    const backBtn = document.querySelector('a.back-btn[href*="pvp.php"], a[href="pvp.php"], a[href="/pvp.php"]');
+    const autoBtn = document.getElementById('autoPlayBtn');
+
+    if (battleEnded()) {
+      if (clickIfPossible(backBtn, 'Battle finished, leaving to PvP lobby...')) {
+        queueNext(ACTION_GAP_MS);
+        return;
+      }
+      setStatus('Battle finished, waiting to leave...');
+      await sleep(BATTLE_RETRY_MS);
+      queueNext(250);
+      return;
+    }
+
+    if (autoBtn && !autoBtn.disabled && !autoPlayEnabled()) {
+      if (clickIfPossible(autoBtn, 'Enabling Auto Play...')) {
+        queueNext(ACTION_GAP_MS);
+        return;
+      }
+    }
+
+    if (autoPlayEnabled()) setStatus('Auto Play running...');
+    else if (autoBtn && autoBtn.disabled) setStatus('Waiting for battle controls...');
+    else setStatus('Waiting for battle state...');
+
+    await sleep(BATTLE_RETRY_MS);
+    queueNext(250);
+  };
+
+  const runTick = async () => {
+    if (!isActive()) {
+      setStatus('Bot is idle.');
+      queueNext(1000);
+      return;
+    }
+
+    if (isLobbyPage()) {
+      await handleLobby();
+      return;
+    }
+
+    if (isBattlePage()) {
+      await handleBattle();
+      return;
+    }
+    // Should never happen due to the hard-gate at the top, but stay silent if it does.
+    queueNext(1500);
+  };
+
+  // UI: only show on the Solo PvP lobby page (requested).
+  if (isLobbyPage()) {
+    const runUi = () => injectInlineButton();
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', runUi, { once: true });
+    else runUi();
+  }
+
+  queueNext(200);
+})();
