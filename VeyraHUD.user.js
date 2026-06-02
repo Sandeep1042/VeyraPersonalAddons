@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.20.2
+// @version      0.3.20.3
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -6839,6 +6839,62 @@
       .tm-sbw-board[data-size="small"] .btn{ padding: 8px 10px !important; font-size: 12px !important; }
       .tm-sbw-board[data-size="tiny"]  .btn{ padding: 7px 9px !important; font-size: 12px !important; }
       @media (max-width: 700px) {
+        .stage > .tm-sbw-cube-board {
+          width: calc(100vw - 12px);
+          max-width: calc(100vw - 12px);
+          margin-left: 6px;
+          margin-right: 6px;
+        }
+        .tm-sbw-cube-jump {
+          width: 100%;
+          gap: 8px;
+          padding: 9px;
+          top: 4px;
+        }
+        .tm-sbw-cube-jump a {
+          flex: 1 1 86px;
+          min-width: 86px;
+          padding: 9px 10px;
+          font-size: 12px;
+        }
+        .tm-sbw-cube-sections {
+          gap: 34px;
+          margin-top: 24px;
+        }
+        .tm-sbw-cube-section {
+          padding: 14px;
+          gap: 16px;
+          border-radius: 12px;
+        }
+        .tm-sbw-cube-section-head h3 {
+          font-size: 16px;
+        }
+        .tm-sbw-cube-grid {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 14px;
+        }
+        .tm-sbw-cube-card {
+          min-height: 148px;
+          padding: 14px !important;
+        }
+        .tm-sbw-cube-card .tm-sbw-monster-img {
+          width: 64px;
+          height: 64px;
+        }
+        .tm-sbw-cube-card .tm-sbw-monster-name {
+          font-size: 15px;
+        }
+        .tm-sbw-cube-card .tm-sbw-stats,
+        .tm-sbw-cube-card .tm-sbw-badge {
+          font-size: 12px;
+        }
+        .tm-sbw-cube-card .btn,
+        .tm-sbw-cube-link,
+        .tm-sbw-cube-checkline {
+          min-height: 38px;
+          padding: 9px 11px;
+          font-size: 12px;
+        }
         .tm-sbw-dot {
           min-width: 24px;
           height: 24px;
