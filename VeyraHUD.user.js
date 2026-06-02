@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.20.3
+// @version      0.3.20.4
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -31,11 +31,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.20',
+      version: '0.3.20.4',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.20'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.20');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.20.4'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.20.4');
   } catch (e) {
     // ignore
   }
@@ -45,6 +45,7 @@
 (function(){
   'use strict';
 
+  const APP_VERSION = '0.3.20.4';
   const VERSION = '0.3.20';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
@@ -272,7 +273,7 @@
     title.style.cssText = 'font-weight:900;font-size:16px;color:#fff;';
 
     const sub = document.createElement('div');
-    sub.textContent = 'Now running v' + VERSION;
+    sub.textContent = 'Now running v' + APP_VERSION;
     sub.style.cssText = 'margin-top:4px;color:#c7cbdf;';
 
     const listWrap = document.createElement('div');
@@ -6839,29 +6840,39 @@
       .tm-sbw-board[data-size="small"] .btn{ padding: 8px 10px !important; font-size: 12px !important; }
       .tm-sbw-board[data-size="tiny"]  .btn{ padding: 7px 9px !important; font-size: 12px !important; }
       @media (max-width: 700px) {
+        html,
+        body {
+          max-width: 100vw;
+          overflow-x: hidden;
+        }
         .stage > .tm-sbw-cube-board {
-          width: calc(100vw - 12px);
-          max-width: calc(100vw - 12px);
+          width: 100%;
+          max-width: 100%;
           max-height: none !important;
-          margin-left: 6px;
-          margin-right: 6px;
+          margin-left: 0;
+          margin-right: 0;
           overflow: visible !important;
         }
         .tm-sbw-cube-jump {
-          position: sticky;
-          top: 4px;
-          width: fit-content;
-          max-width: calc(100vw - 18px);
-          gap: 8px;
-          padding: 9px;
-          margin: 12px auto 0;
+          position: fixed;
+          top: 74px;
+          right: 6px;
+          z-index: 2147482500;
+          flex-direction: column;
+          align-items: stretch;
+          width: auto;
+          max-width: 92px;
+          gap: 6px;
+          padding: 6px;
+          margin: 0;
           transform: none;
         }
         .tm-sbw-cube-jump a {
-          flex: 1 1 74px;
-          min-width: 74px;
-          padding: 9px 10px;
-          font-size: 12px;
+          flex: 0 0 auto;
+          min-width: 0;
+          width: 78px;
+          padding: 7px 6px;
+          font-size: 10.5px;
         }
         .tm-sbw-cube-sections {
           gap: 34px;
