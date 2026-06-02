@@ -4,8 +4,8 @@
 // @version      0.3.17
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Shadowbridge monster board, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
-// @match        ://demonicscans.org/
-// @match        ://www.demonicscans.org/
+// @match        *://demonicscans.org/*
+// @match        *://www.demonicscans.org/*
 // @homepageURL  https://github.com/nobody65321/VeyraPersonalAddons
 // @updateURL    https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.user.js
 // @downloadURL  https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.user.js
@@ -449,7 +449,7 @@
   // If you later re-capture drops by visiting a battle page, those live values will be kept.
   const DROPS_SEED_VERSION = '2026-04-10a';
   const DROPS_SEED_COMPACT_JSON =
-    {"arcaneback bear":{"mobName":"Arcaneback Bear","capturedAt":0,"items":[{"name":"Broken Oath Rune","tier":"EPIC","dropPct":65,"dmgReq":1200000,"locked":false},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":false},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2400000,"locked":false},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":false},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":false},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":false},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":false}],"mobKey":"arcaneback bear"},"arcanecrest hyena":{"mobName":"Arcanecrest Hyena","capturedAt":0,"items":[{"name":"Memory Ash","tier":"EPIC","dropPct":65,"dmgReq":1500000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":2500000,"locked":true},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanecrest hyena"},"arcanefang wolf":{"mobName":"Arcanefang Wolf","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":2500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Burnt Spellpage","tier":"COMMON","dropPct":80,"dmgReq":1000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanefang wolf"},"arcanehide boar":{"mobName":"Arcanehide Boar","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Cracked Mana Lens","tier":"RARE","dropPct":45,"dmgReq":1800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Burnt Spellpage","tier":"COMMON","dropPct":70,"dmgReq":1200000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanehide boar"},"hexpyre crow":{"mobName":"Hexpyre Crow","capturedAt":0,"items":[{"name":"Vaelith Sigil Fragment","tier":"EPIC","dropPct":45,"dmgReq":2200000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Black Ink Vial","tier":"RARE","dropPct":60,"dmgReq":1700000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Sealed Page","tier":"RARE","dropPct":80,"dmgReq":1300000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"hexpyre crow"},"runestag":{"mobName":"Runestag","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Cracked Mana Lens","tier":"RARE","dropPct":40,"dmgReq":1900000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Starglass Shard","tier":"RARE","dropPct":75,"dmgReq":1500000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"runestag"},"sigilscale viper":{"mobName":"Sigilscale Viper","capturedAt":0,"items":[{"name":"Archive Ember Seal","tier":"EPIC","dropPct":60,"dmgReq":2000000,"locked":true},{"name":"Sister\\u0027s Ribbon Thread","tier":"EPIC","dropPct":35,"dmgReq":2200000,"locked":true},{"name":"Ward Thread","tier":"EPIC","dropPct":70,"dmgReq":1800000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"sigilscale viper"},"spellfurnace lynx":{"mobName":"Spellfurnace Lynx","capturedAt":0,"items":[{"name":"Ward Thread","tier":"EPIC","dropPct":60,"dmgReq":2000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Observatory Gear","tier":"RARE","dropPct":65,"dmgReq":1800000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"spellfurnace lynx"}};
+    `{"arcaneback bear":{"mobName":"Arcaneback Bear","capturedAt":0,"items":[{"name":"Broken Oath Rune","tier":"EPIC","dropPct":65,"dmgReq":1200000,"locked":false},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":false},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2400000,"locked":false},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":false},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":false},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":false},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":false}],"mobKey":"arcaneback bear"},"arcanecrest hyena":{"mobName":"Arcanecrest Hyena","capturedAt":0,"items":[{"name":"Memory Ash","tier":"EPIC","dropPct":65,"dmgReq":1500000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":2500000,"locked":true},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanecrest hyena"},"arcanefang wolf":{"mobName":"Arcanefang Wolf","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":2500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Burnt Spellpage","tier":"COMMON","dropPct":80,"dmgReq":1000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanefang wolf"},"arcanehide boar":{"mobName":"Arcanehide Boar","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Cracked Mana Lens","tier":"RARE","dropPct":45,"dmgReq":1800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Burnt Spellpage","tier":"COMMON","dropPct":70,"dmgReq":1200000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanehide boar"},"hexpyre crow":{"mobName":"Hexpyre Crow","capturedAt":0,"items":[{"name":"Vaelith Sigil Fragment","tier":"EPIC","dropPct":45,"dmgReq":2200000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Black Ink Vial","tier":"RARE","dropPct":60,"dmgReq":1700000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Sealed Page","tier":"RARE","dropPct":80,"dmgReq":1300000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"hexpyre crow"},"runestag":{"mobName":"Runestag","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Cracked Mana Lens","tier":"RARE","dropPct":40,"dmgReq":1900000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Starglass Shard","tier":"RARE","dropPct":75,"dmgReq":1500000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"runestag"},"sigilscale viper":{"mobName":"Sigilscale Viper","capturedAt":0,"items":[{"name":"Archive Ember Seal","tier":"EPIC","dropPct":60,"dmgReq":2000000,"locked":true},{"name":"Sister\\u0027s Ribbon Thread","tier":"EPIC","dropPct":35,"dmgReq":2200000,"locked":true},{"name":"Ward Thread","tier":"EPIC","dropPct":70,"dmgReq":1800000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"sigilscale viper"},"spellfurnace lynx":{"mobName":"Spellfurnace Lynx","capturedAt":0,"items":[{"name":"Ward Thread","tier":"EPIC","dropPct":60,"dmgReq":2000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Observatory Gear","tier":"RARE","dropPct":65,"dmgReq":1800000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"spellfurnace lynx"}}`;
 
   function isEnabled() {
     const raw = window.localStorage.getItem(LS.enabled);
@@ -789,7 +789,7 @@
 
     // Keep status concise; avoid "failed" noise when it simply cleared to 0.
     if (r.cleared) setStatus('Auto-captured: 0 objectives (cleared).');
-    else setStatus(Auto-captured ${r.questsCount} quests.);
+    else setStatus(`Auto-captured ${r.questsCount} quests.`);
     return true;
   }
 
@@ -1053,7 +1053,7 @@
 
   function setStatus(text) {
     const el = document.getElementById('tmEmberfallHelperStatus');
-    if (el) el.textContent = [${nowIso()}] ${text};
+    if (el) el.textContent = `[${nowIso()}] ${text}`;
     console.log('[Emberfall Helper]', text);
   }
 
@@ -1073,14 +1073,14 @@
     });
 
     const lines = [];
-    lines.push(<div style="font-weight:800;color:#fff;">Quest Journal</div>);
-    lines.push(<div style="color:#9aa0b8;margin-top:4px;">Quests updated: <strong>${updated}</strong> | Drops known: <strong>${haveDrops}</strong> mobs</div>);
+    lines.push(`<div style="font-weight:800;color:#fff;">Quest Journal</div>`);
+    lines.push(`<div style="color:#9aa0b8;margin-top:4px;">Quests updated: <strong>${updated}</strong> | Drops known: <strong>${haveDrops}</strong> mobs</div>`);
 
     if (!activeQuests.length) {
       if (q.updatedAt) {
-        lines.push(<div style="margin-top:8px;color:#c7cbdf;">No active missions.</div>);
+        lines.push(`<div style="margin-top:8px;color:#c7cbdf;">No active missions.</div>`);
       } else {
-        lines.push(<div style="margin-top:8px;color:#c7cbdf;">No quests captured yet. Open the Emberfall event page and wait a moment (auto-capture runs on load).</div>);
+        lines.push(`<div style="margin-top:8px;color:#c7cbdf;">No quests captured yet. Open the Emberfall event page and wait a moment (auto-capture runs on load).</div>`);
       }
     }
 
@@ -1089,19 +1089,19 @@
       const mobLinks = getMobTypeLinksFromWavePage();
       if (mobLinks.length) {
         const missing = mobLinks.filter((m) => !dropsByMob[normKey(m.mobName)]);
-        lines.push(<div style="margin-top:10px;font-weight:800;color:#fff;">Arcane Wild Fringe Mobs</div>);
-        lines.push(<div style="color:#9aa0b8;margin-top:4px;">Mob types: <strong>${mobLinks.length}</strong> | Missing drop data: <strong>${missing.length}</strong></div>);
+        lines.push(`<div style="margin-top:10px;font-weight:800;color:#fff;">Arcane Wild Fringe Mobs</div>`);
+        lines.push(`<div style="color:#9aa0b8;margin-top:4px;">Mob types: <strong>${mobLinks.length}</strong> | Missing drop data: <strong>${missing.length}</strong></div>`);
         if (missing.length) {
-          lines.push(<div style="margin-top:6px;color:#c7cbdf;line-height:1.4;">Open one of these, then come back and hit <strong>Refresh Panel</strong>:</div>);
-          lines.push(<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">);
+          lines.push(`<div style="margin-top:6px;color:#c7cbdf;line-height:1.4;">Open one of these, then come back and hit <strong>Refresh Panel</strong>:</div>`);
+          lines.push(`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">`);
           for (const m of missing.slice(0, 10)) {
             lines.push(
-              <a href="${escapeHtml(m.url)}" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;border:1px solid rgba(255,255,255,0.10);background:rgba(255,255,255,0.04);color:#e6e9ff;"> +
-              ${escapeHtml(m.mobName)} +
-              </a>
+              `<a href="${escapeHtml(m.url)}" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;border:1px solid rgba(255,255,255,0.10);background:rgba(255,255,255,0.04);color:#e6e9ff;">` +
+              `${escapeHtml(m.mobName)}` +
+              `</a>`
             );
           }
-          lines.push(</div>);
+          lines.push(`</div>`);
         }
       }
     }
@@ -1110,69 +1110,69 @@
       return lines.join('');
     }
 
-    lines.push(<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">);
+    lines.push(`<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">`);
     for (const quest of activeQuests) {
       const title = quest.title || '(untitled)';
       const type = quest.type || '';
       const objective = quest.objective || '';
-      const progress = quest.progress ? ${quest.progress.have}/${quest.progress.total} : '';
+      const progress = quest.progress ? `${quest.progress.have}/${quest.progress.total}` : '';
 
       let sourceHtml = '';
       if (quest.need && quest.need.kind === 'item') {
         const sources = computeItemSources(quest.need.name);
         if (sources.length) {
           sourceHtml =
-            <div style="margin-top:6px;color:#cfeccc;">Drops from:  +
+            `<div style="margin-top:6px;color:#cfeccc;">Drops from: ` +
             sources
               .slice(0, 4)
               .map((s) => {
-                const pct = (typeof s.dropPct === 'number') ? ${s.dropPct}% : '?%';
-                return <span style="white-space:nowrap;">${escapeHtml(s.mobName)} (${pct})</span>;
+                const pct = (typeof s.dropPct === 'number') ? `${s.dropPct}%` : '?%';
+                return `<span style="white-space:nowrap;">${escapeHtml(s.mobName)} (${pct})</span>`;
               })
               .join(', ') +
-            (sources.length > 4 ?  +${sources.length - 4} more : '') +
-            </div>;
+            (sources.length > 4 ? ` +${sources.length - 4} more` : '') +
+            `</div>`;
         } else {
-          sourceHtml = <div style="margin-top:6px;color:#ffb3b3;">No drop sources cached yet. Open a few battles and refresh.</div>;
+          sourceHtml = `<div style="margin-top:6px;color:#ffb3b3;">No drop sources cached yet. Open a few battles and refresh.</div>`;
         }
       }
 
       lines.push(
-        <div style="padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);"> +
-          <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"> +
-            <div style="font-weight:800;color:#fff;">${escapeHtml(title)}</div> +
-            <div style="color:#9aa0b8;white-space:nowrap;">${escapeHtml(type)}${progress ?  | ${escapeHtml(progress)}` : ''}</div>` +
-          </div> +
-          <div style="margin-top:4px;color:#ffd369;font-weight:700;line-height:1.35;">${escapeHtml(objective)}</div> +
+        `<div style="padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);">` +
+          `<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">` +
+            `<div style="font-weight:800;color:#fff;">${escapeHtml(title)}</div>` +
+            `<div style="color:#9aa0b8;white-space:nowrap;">${escapeHtml(type)}${progress ? ` | ${escapeHtml(progress)}` : ''}</div>` +
+          `</div>` +
+          `<div style="margin-top:4px;color:#ffd369;font-weight:700;line-height:1.35;">${escapeHtml(objective)}</div>` +
           sourceHtml +
-        </div>
+        `</div>`
       );
     }
-    lines.push(</div>);
+    lines.push(`</div>`);
 
-    lines.push(<div style="margin-top:10px;font-weight:800;color:#fff;">Drops Index</div>);
-    lines.push(<div style="margin-top:6px;color:#c7cbdf;">Drops are seeded from your saved mob pages; visiting a battle also refreshes that mob's Possible Loot table.</div>);
+    lines.push(`<div style="margin-top:10px;font-weight:800;color:#fff;">Drops Index</div>`);
+    lines.push(`<div style="margin-top:6px;color:#c7cbdf;">Drops are seeded from your saved mob pages; visiting a battle also refreshes that mob's Possible Loot table.</div>`);
 
     const idx = buildDropsIndex();
     if (!idx.length) {
-      lines.push(<div style="margin-top:6px;color:#9aa0b8;">No battles captured yet.</div>);
+      lines.push(`<div style="margin-top:6px;color:#9aa0b8;">No battles captured yet.</div>`);
       return lines.join('');
     }
 
-    lines.push(<div style="margin-top:8px;max-height:240px;overflow:auto;border-radius:10px;border:1px solid rgba(255,255,255,0.08);">);
+    lines.push(`<div style="margin-top:8px;max-height:240px;overflow:auto;border-radius:10px;border:1px solid rgba(255,255,255,0.08);">`);
     for (const mob of idx) {
       const items = mob.items.slice(0, 6).map((it) => {
-        const pct = (typeof it.dropPct === 'number') ? ${it.dropPct}% : '?%';
-        return ${it.name} (${pct});
+        const pct = (typeof it.dropPct === 'number') ? `${it.dropPct}%` : '?%';
+        return `${it.name} (${pct})`;
       }).join(', ');
       lines.push(
-        <div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.06);"> +
-          <div style="font-weight:800;color:#fff;">${escapeHtml(mob.mobName)}</div> +
-          <div style="margin-top:4px;color:#9aa0b8;line-height:1.4;">${escapeHtml(items || 'No items')}</div> +
-        </div>
+        `<div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.06);">` +
+          `<div style="font-weight:800;color:#fff;">${escapeHtml(mob.mobName)}</div>` +
+          `<div style="margin-top:4px;color:#9aa0b8;line-height:1.4;">${escapeHtml(items || 'No items')}</div>` +
+        `</div>`
       );
     }
-    lines.push(</div>);
+    lines.push(`</div>`);
 
     return lines.join('');
   }
@@ -1211,18 +1211,18 @@
     });
 
     const lines = [];
-    lines.push(<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">);
-    lines.push(<div style="font-weight:900;color:#fff;">Quest Journal</div>);
-    lines.push(<div style="color:#9aa0b8;white-space:nowrap;font-size:12px;">Drops known: <strong>${haveDrops}</strong> mobs</div>);
-    lines.push(</div>);
+    lines.push(`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">`);
+    lines.push(`<div style="font-weight:900;color:#fff;">Quest Journal</div>`);
+    lines.push(`<div style="color:#9aa0b8;white-space:nowrap;font-size:12px;">Drops known: <strong>${haveDrops}</strong> mobs</div>`);
+    lines.push(`</div>`);
 
     if (!activeQuests.length) {
-      if (q.updatedAt) lines.push(<div style="margin-top:6px;color:#c7cbdf;">No active missions.</div>);
-      else lines.push(<div style="margin-top:6px;color:#c7cbdf;">No quests captured yet. Open the Emberfall map and wait a moment (auto-capture runs on load).</div>);
+      if (q.updatedAt) lines.push(`<div style="margin-top:6px;color:#c7cbdf;">No active missions.</div>`);
+      else lines.push(`<div style="margin-top:6px;color:#c7cbdf;">No quests captured yet. Open the Emberfall map and wait a moment (auto-capture runs on load).</div>`);
       return lines.join('');
     }
 
-    lines.push(<div style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">);
+    lines.push(`<div style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">`);
     for (const quest of activeQuests.slice(0, 6)) {
       const objective = quest.objective || '';
       let source = '';
@@ -1230,24 +1230,24 @@
         const sources = computeItemSources(quest.need.name);
         if (sources.length) {
           source =
-            <div style="margin-top:4px;color:#cfeccc;">Drops:  +
+            `<div style="margin-top:4px;color:#cfeccc;">Drops: ` +
             sources
               .slice(0, 2)
               .map((s) => escapeHtml(s.mobName))
               .join(', ') +
-            (sources.length > 2 ?  +${sources.length - 2} : '') +
-            </div>;
+            (sources.length > 2 ? ` +${sources.length - 2}` : '') +
+            `</div>`;
         }
       }
 
       lines.push(
-        <div style="padding:8px;border-radius:12px;border:1px solid rgba(255,255,255,0.10);background:rgba(20,22,35,0.55);"> +
-          <div style="color:#ffd369;font-weight:800;line-height:1.35;">${escapeHtml(objective)}</div> +
+        `<div style="padding:8px;border-radius:12px;border:1px solid rgba(255,255,255,0.10);background:rgba(20,22,35,0.55);">` +
+          `<div style="color:#ffd369;font-weight:800;line-height:1.35;">${escapeHtml(objective)}</div>` +
           source +
-        </div>
+        `</div>`
       );
     }
-    lines.push(</div>);
+    lines.push(`</div>`);
 
     return lines.join('');
   }
@@ -1287,7 +1287,7 @@
     const payload = parseLootFromBattlePage();
     if (!payload) return;
     if (upsertDrops(payload)) {
-      setStatus(Captured drops for ${payload.mobName} (${payload.items.length} items).);
+      setStatus(`Captured drops for ${payload.mobName} (${payload.items.length} items).`);
     }
   }
 
@@ -1381,7 +1381,7 @@
   }
 
   function getAllTypesCacheKey(baseUrl) {
-    return ${ALL_TYPES_CACHE_PREFIX}${String(baseUrl || '')};
+    return `${ALL_TYPES_CACHE_PREFIX}${String(baseUrl || '')}`;
   }
 
   function clearAllDeadTypesCacheForCurrentWave() {
@@ -1601,7 +1601,7 @@
 
         trySaveAllDeadIndex(baseUrl, merged, firstPageByType);
         window.setTimeout(() => ensureTypeFilterOptions(), 0);
-        setStatus(Dead monster types loaded (${merged.size}).);
+        setStatus(`Dead monster types loaded (${merged.size}).`);
       } catch (e) {
         try {
           console.warn('[TM Graveyard] prefetch crashed', e);
@@ -1724,7 +1724,7 @@
     const sel = document.createElement('select');
     sel.id = 'tmWaveCardSizeSel';
     sel.className = 'btn';
-    sel.innerHTML = <option value="">Normal</option><option value="small">Small</option><option value="tiny">Tiny</option>;
+    sel.innerHTML = `<option value="">Normal</option><option value="small">Small</option><option value="tiny">Tiny</option>`;
     sel.value = getSavedCardSize() || '';
 
     sel.addEventListener('change', () => setCardSize(sel.value));
@@ -1766,8 +1766,8 @@
 
     const cs = window.getComputedStyle(ref);
     const bg = cs.backgroundImage && cs.backgroundImage !== 'none' ? cs.backgroundImage : cs.backgroundColor;
-    const border = ${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor};
-    const padding = ${cs.paddingTop} ${cs.paddingRight} ${cs.paddingBottom} ${cs.paddingLeft};
+    const border = `${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor}`;
+    const padding = `${cs.paddingTop} ${cs.paddingRight} ${cs.paddingBottom} ${cs.paddingLeft}`;
 
     // Spacing: try to match the Multi Target row spacing (gap).
     // NOTE: use single values (row/col) so we can safely reuse them in CSS without calc() issues.
@@ -1865,7 +1865,7 @@
 
     mergeDeadPagesFetch = (async () => {
       let appended = 0;
-      setStatus(Loading dead pages (this can be heavy)...);
+      setStatus(`Loading dead pages (this can be heavy)...`);
 
       const pages = [];
       for (let p = 1; p <= maxPages; p++) if (p !== curPage) pages.push(p);
@@ -1874,7 +1874,7 @@
         pages,
         2,
         async (p) => {
-          setStatus(Loading dead page ${p}/${maxPages}... (added ${appended}));
+          setStatus(`Loading dead page ${p}/${maxPages}... (added ${appended})`);
           const u = new URL(baseUrl);
           if (p > 1) u.searchParams.set('dead_page', String(p));
           else u.searchParams.delete('dead_page');
@@ -1899,7 +1899,7 @@
         }
       }
 
-      setStatus(Loaded ${appended} dead monsters from other pages.);
+      setStatus(`Loaded ${appended} dead monsters from other pages.`);
       markMergedAllDeadPages();
       ensureTypeFilterOptions();
       applyTypeFilter();
@@ -1936,7 +1936,7 @@
   function updateSelectedCount() {
     const el = document.getElementById('tmLootSelectedCount');
     if (!el) return;
-    el.textContent = Selected: ${getSelectedLootIds().length};
+    el.textContent = `Selected: ${getSelectedLootIds().length}`;
   }
 
   function clearSelection() {
@@ -2272,7 +2272,7 @@
     });
     document.body.appendChild(modal);
 
-    const btnClose = document.getElementById(${MODAL_ID}_close);
+    const btnClose = document.getElementById(`${MODAL_ID}_close`);
     if (btnClose) btnClose.addEventListener('click', closeLootModal);
 
     window.addEventListener('keydown', (e) => {
@@ -2291,9 +2291,9 @@
     ensureLootModal();
 
     const modal = document.getElementById(MODAL_ID);
-    const sumEl = document.getElementById(${MODAL_ID}_summary);
-    const gridEl = document.getElementById(${MODAL_ID}_grid);
-    const noteEl = document.getElementById(${MODAL_ID}_note);
+    const sumEl = document.getElementById(`${MODAL_ID}_summary`);
+    const gridEl = document.getElementById(`${MODAL_ID}_grid`);
+    const noteEl = document.getElementById(`${MODAL_ID}_note`);
     if (!modal || !sumEl || !gridEl || !noteEl) return;
 
     const nf = new Intl.NumberFormat();
@@ -2305,7 +2305,7 @@
       ['Gold', nf.format(summary.gold || 0)],
       ['Items', nf.format(items.length)]
     ];
-    sumEl.innerHTML = chips.map(([k, v]) => <span class="tmml-chip">${k}: ${v}</span>).join('');
+    sumEl.innerHTML = chips.map(([k, v]) => `<span class="tmml-chip">${k}: ${v}</span>`).join('');
 
     const uniqNotes = Array.from(new Set((notes || []).filter(Boolean))).slice(0, 8);
     if (uniqNotes.length) {
@@ -2321,7 +2321,7 @@
       const name = String(it?.NAME || it?.name || 'Item');
       const tier = String(it?.TIER || it?.tier || '');
       const img = String(it?.IMAGE_URL || it?.image_url || it?.img || '');
-      const key = ${img}|||${tier}|||${name};
+      const key = `${img}|||${tier}|||${name}`;
       const prev = stack.get(key);
       if (prev) prev.count += 1;
       else stack.set(key, { name, tier, img, count: 1 });
@@ -2334,17 +2334,17 @@
 
     gridEl.innerHTML = stackedItems.length
       ? stackedItems.slice(0, 160).map((it) => {
-          const badge = it.count > 1 ? <span class="tmml-count">x${it.count}</span> : ``;
+          const badge = it.count > 1 ? `<span class="tmml-count">x${it.count}</span>` : ``;
           return `
             <div class="tmml-item">
               ${badge}
-              ${it.img ? <img src="${String(it.img)}" alt="${String(it.name)}"> : `<div class="muted">No image</div>`}
+              ${it.img ? `<img src="${String(it.img)}" alt="${String(it.name)}">` : `<div class="muted">No image</div>`}
               <small>${String(it.name)}</small>
-              ${it.tier ? <small class="muted">${String(it.tier)}</small> : ``}
+              ${it.tier ? `<small class="muted">${String(it.tier)}</small>` : ``}
             </div>
           `;
         }).join('')
-      : <div class="tmml-note">No items this time.</div>;
+      : `<div class="tmml-note">No items this time.</div>`;
 
     modal.style.display = 'flex';
   }
@@ -2375,7 +2375,7 @@
 
     for (const cb of Array.from(document.querySelectorAll('input.tm-loot-select:checked[data-monster-id]'))) {
       const id = cb.getAttribute('data-monster-id');
-      const card = id ? document.querySelector(.monster-card[data-monster-id="${id}"]) : null;
+      const card = id ? document.querySelector(`.monster-card[data-monster-id="${id}"]`) : null;
       if (card && card.style.display === 'none') cb.checked = false;
     }
 
@@ -2394,7 +2394,7 @@
           const cur = new URL(window.location.href);
           const curPage = parseInt(cur.searchParams.get('dead_page') || '1', 10) || 1;
           if (firstPage !== curPage) {
-            setStatus(No "${chosen}" on this page. It first appears on dead page ${firstPage}.);
+            setStatus(`No "${chosen}" on this page. It first appears on dead page ${firstPage}.`);
           }
         }
       }
@@ -2422,7 +2422,7 @@
     const nextOptions = [''].concat(Array.from(types).sort((a, b) => a.localeCompare(b)));
 
     const isLoading = !cached?.types && !!allDeadTypesFetch && lastAllDeadTypesBaseUrl === baseUrl;
-    const sig = nextOptions.join('\n') + \n#loading=${isLoading ? '1' : '0'};
+    const sig = nextOptions.join('\n') + `\n#loading=${isLoading ? '1' : '0'}`;
     if (sel.dataset.tmOptionsSig !== sig) {
       sel.innerHTML = '';
       for (const v of nextOptions) {
@@ -2442,8 +2442,8 @@
     if (badge) {
       const cachedCount = cached?.types ? cached.types.size : 0;
       badge.textContent = isLoading
-        ? types: ${pageTypes.size} (page) / ${cachedCount || '?'} (all) — loading…
-        : types: ${pageTypes.size} (page) / ${cachedCount || pageTypes.size} (all);
+        ? `types: ${pageTypes.size} (page) / ${cachedCount || '?'} (all) — loading…`
+        : `types: ${pageTypes.size} (page) / ${cachedCount || pageTypes.size} (all)`;
     }
   }
 
@@ -2637,7 +2637,7 @@
         const cached = tryLoadAllDeadIndex(baseUrl);
         const firstPage = cached?.firstPageByType instanceof Map ? cached.firstPageByType.get(chosen) : 0;
         if (firstPage && firstPage > 0) {
-          setStatus(0 selected. "${chosen}" is on dead page ${firstPage} (use the Go to button).);
+          setStatus(`0 selected. "${chosen}" is on dead page ${firstPage} (use the Go to button).`);
         } else {
           setStatus('0 selected (none visible + lootable on this page).');
         }
@@ -2646,11 +2646,11 @@
       }
       for (const card of cards) {
         const id = parseInt(card.getAttribute('data-monster-id') || '0', 10);
-        const cb = id ? document.querySelector(input.tm-loot-select[data-monster-id="${id}"]) : null;
+        const cb = id ? document.querySelector(`input.tm-loot-select[data-monster-id="${id}"]`) : null;
         if (cb) cb.checked = true;
       }
       updateSelectedCount();
-      setStatus(Selected ${getSelectedLootIds().length} visible dead monsters (all).);
+      setStatus(`Selected ${getSelectedLootIds().length} visible dead monsters (all).`);
     });
 
     function applyQtySelection() {
@@ -2667,14 +2667,14 @@
 
       const n = Math.min(want, ids.length);
       for (let i = 0; i < ids.length; i++) {
-        const cb = document.querySelector(input.tm-loot-select[data-monster-id="${ids[i]}"]);
+        const cb = document.querySelector(`input.tm-loot-select[data-monster-id="${ids[i]}"]`);
         if (cb) cb.checked = i < n;
       }
 
       updateSelectedCount();
       const chosen = normName(document.getElementById('tmLootTypeFilter')?.value || '').toLowerCase();
-      const suffix = chosen ?  (${chosen}) : '';
-      setStatus(Selected ${n}/${ids.length} visible dead monsters${suffix}.);
+      const suffix = chosen ? ` (${chosen})` : '';
+      setStatus(`Selected ${n}/${ids.length} visible dead monsters${suffix}.`);
     }
 
     qtyInput.addEventListener('input', () => {
@@ -2754,7 +2754,7 @@
 
       if (firstPage && firstPage > 0 && firstPage !== curPage) {
         btnGoToType.disabled = false;
-        btnGoToType.textContent = Go to dead page ${firstPage};
+        btnGoToType.textContent = `Go to dead page ${firstPage}`;
         btnGoToType.dataset.tmTargetPage = String(firstPage);
       } else {
         btnGoToType.disabled = true;
@@ -2792,7 +2792,7 @@
       ok,
       message: ok
         ? (data.message || 'OK')
-        : (typeof data === 'object' && data && data.message ? data.message : (res.ok ? 'Failed' : HTTP ${res.status})),
+        : (typeof data === 'object' && data && data.message ? data.message : (res.ok ? 'Failed' : `HTTP ${res.status}`)),
       items: ok && Array.isArray(data.items) ? data.items : [],
       exp: ok ? (data.rewards?.exp || 0) : 0,
       gold: ok ? (data.rewards?.gold || 0) : 0
@@ -2812,7 +2812,7 @@
     const allNotes = [];
 
     for (let i = 0; i < targetIds.length; i++) {
-      setStatus(Looting ${i + 1}/${targetIds.length}... (success: ${ok}, fail: ${fail}));
+      setStatus(`Looting ${i + 1}/${targetIds.length}... (success: ${ok}, fail: ${fail})`);
       try {
         const r = await lootOne(targetIds[i]);
         if (r.ok) {
@@ -2821,9 +2821,9 @@
           totalGold += Number(r.gold || 0) || 0;
           if (Array.isArray(r.items) && r.items.length) allItems.push(...r.items);
           else allNotes.push(r.message || 'Looted (no items)');
-          const el = document.querySelector(.monster-card[data-monster-id="${targetIds[i]}"]);
+          const el = document.querySelector(`.monster-card[data-monster-id="${targetIds[i]}"]`);
           if (el) el.setAttribute('data-eligible', '0');
-          const cb = document.querySelector(input.tm-loot-select[data-monster-id="${targetIds[i]}"]);
+          const cb = document.querySelector(`input.tm-loot-select[data-monster-id="${targetIds[i]}"]`);
           if (cb) cb.checked = false;
         } else {
           fail++;
@@ -2839,7 +2839,7 @@
     }
 
     updateSelectedCount();
-    setStatus(Done. Looted ${ok}, failed ${fail}.${firstFail ?  First fail: ${firstFail}` : ''}`);
+    setStatus(`Done. Looted ${ok}, failed ${fail}.${firstFail ? ` First fail: ${firstFail}` : ''}`);
     openLootModal(
       { processed: targetIds.length, success: ok, fail, exp: totalExp, gold: totalGold },
       allItems,
@@ -2979,7 +2979,7 @@
     try { document.body.classList.add('tm-sbw-map-page'); } catch {}
     init().catch((error) => {
       console.error('[TM Shadowbridge]', error);
-      renderError(Failed to load monster list: ${error.message || error});
+      renderError(`Failed to load monster list: ${error.message || error}`);
     });
   }
 
@@ -3066,7 +3066,7 @@
   async function fetchLocation(url, fallbackName) {
     const response = await fetch(url.toString(), { credentials: 'include' });
     if (!response.ok) {
-      throw new Error(Request failed for ${fallbackName} (${response.status}));
+      throw new Error(`Request failed for ${fallbackName} (${response.status})`);
     }
 
     const html = await response.text();
@@ -3231,7 +3231,7 @@
       board.remove();
       init().catch((error) => {
         console.error('[TM Shadowbridge]', error);
-        renderError(Refresh failed: ${error.message || error});
+        renderError(`Refresh failed: ${error.message || error}`);
       });
     });
 
@@ -3260,15 +3260,15 @@
     const deadCount = allMonsters.length - aliveCount;
 
     summary.innerHTML = [
-      summaryPill(${allMonsters.length} monsters found),
-      summaryPill(${aliveCount} alive, 'alive'),
-      summaryPill(${deadCount} dead, 'dead')
+      summaryPill(`${allMonsters.length} monsters found`),
+      summaryPill(`${aliveCount} alive`, 'alive'),
+      summaryPill(`${deadCount} dead`, 'dead')
     ].join('');
 
     nameFilter.innerHTML = [
       '<option value="">All monsters</option>',
       ...Array.from(new Set(allMonsters.map((monster) => monster.name))).sort((a, b) => a.localeCompare(b)).map(
-        (name) => <option value="${escapeHtml(name.toLowerCase())}">${escapeHtml(name)}</option>
+        (name) => `<option value="${escapeHtml(name.toLowerCase())}">${escapeHtml(name)}</option>`
       )
     ].join('');
 
@@ -3292,7 +3292,7 @@
         locationKey: location.key,
         locationName: location.locationName,
         roomUrl: location.url,
-        id: ${location.key}-${index},
+        id: `${location.key}-${index}`,
         limitRule: getLimitRule(monster.name, location.locationName)
       }))
     );
@@ -3324,12 +3324,12 @@
       const visible = getVisibleMonsters(board, allMonsters);
       const usageMap = getRuleUsageMap();
       controls.monsterGrid.innerHTML = visible.map((monster) => renderMonsterChip(monster, selected.has(monster.id), usageMap, allMonsters)).join('');
-      controls.selectedCount.textContent = Selected: ${selected.size};
+      controls.selectedCount.textContent = `Selected: ${selected.size}`;
       controls.openSelected.disabled = selected.size === 0;
       controls.oneHitQuota.disabled = !damageModel.hasEstimate();
       controls.fillAllTreatQuotas.disabled = !damageModel.hasEstimate();
       controls.fillAllXpCaps.disabled = !damageModel.hasEstimate();
-      controls.damageModelLine.textContent = Non-crit estimate: ${damageModel.describe()};
+      controls.damageModelLine.textContent = `Non-crit estimate: ${damageModel.describe()}`;
       if (!controls.runLine.dataset.busy) {
         controls.runLine.textContent = '';
       }
@@ -3373,7 +3373,7 @@
       } else {
         selected.delete(target.value);
       }
-      controls.selectedCount.textContent = Selected: ${selected.size};
+      controls.selectedCount.textContent = `Selected: ${selected.size}`;
       controls.openSelected.disabled = selected.size === 0;
     });
 
@@ -3417,15 +3417,15 @@
             damageModel.addSample(result.damageDelta);
           }
           results.push({
-            id: ${target.dgmid}-${i + 1},
+            id: `${target.dgmid}-${i + 1}`,
             ok: result.ok,
-            html: Test hit ${i + 1}: ${result.html}
+            html: `Test hit ${i + 1}: ${result.html}`
           });
         } catch (error) {
           results.push({
-            id: ${target.dgmid}-${i + 1},
+            id: `${target.dgmid}-${i + 1}`,
             ok: false,
-            html: Test hit ${i + 1}: ${escapeHtml(error.message || 'Server error')}
+            html: `Test hit ${i + 1}: ${escapeHtml(error.message || 'Server error')}`
           });
         }
         await delay(ATTACK_GAP_MS);
@@ -3438,7 +3438,7 @@
         results: [{
           id: target.dgmid,
           ok: samples.length > 0,
-          html: Estimated non-crit 1-stam damage: <strong>${escapeHtml(formatDamage(damageModel.getEstimate()))}</strong><br>Samples kept: ${escapeHtml(samples.map((value) => formatDamage(value)).join(', '))}
+          html: `Estimated non-crit 1-stam damage: <strong>${escapeHtml(formatDamage(damageModel.getEstimate()))}</strong><br>Samples kept: ${escapeHtml(samples.map((value) => formatDamage(value)).join(', '))}`
         }].concat(results)
       });
       controls.damageTest.disabled = false;
@@ -3514,7 +3514,7 @@
       controls.fillAllTreatQuotas.textContent = 'Running...';
       controls.fillAllXpCaps.textContent = 'Running...';
       controls.runLine.dataset.busy = '1';
-      controls.runLine.textContent = Starting quota fill for ${plannedCandidates.length} monster(s)...;
+      controls.runLine.textContent = `Starting quota fill for ${plannedCandidates.length} monster(s)...`;
 
       for (let index = 0; index < plannedCandidates.length; index += 1) {
         const monster = plannedCandidates[index];
@@ -3523,9 +3523,9 @@
           results.push({
             id: monster.dgmid || monster.name,
             ok: false,
-            html: Skipped: quota/cap reached<br>${escapeHtml(buildLimitSummary(monster, liveUsageMap, allMonsters))}
+            html: `Skipped: quota/cap reached<br>${escapeHtml(buildLimitSummary(monster, liveUsageMap, allMonsters))}`
           });
-          controls.runLine.textContent = Skipping ${monster.name} (${index + 1}/${plannedCandidates.length}) because quota/cap is already reached.;
+          controls.runLine.textContent = `Skipping ${monster.name} (${index + 1}/${plannedCandidates.length}) because quota/cap is already reached.`;
           continue;
         }
 
@@ -3539,7 +3539,7 @@
             const liveUsageMap = getRuleUsageMap();
             if (monster.limitRule && hasReachedLimit(monster, liveUsageMap)) {
               stopReason = 'quota/cap reached';
-              controls.runLine.textContent = Stopping ${monster.name}: quota/cap reached after ${hitCount} hit(s).;
+              controls.runLine.textContent = `Stopping ${monster.name}: quota/cap reached after ${hitCount} hit(s).`;
               break;
             }
 
@@ -3550,21 +3550,21 @@
             const pick = pickBestQuotaStamina(currentRemaining, estimate, currentHp);
             const chosenStamina = pick.stamina;
             const chosenEstimate = pick.estimatedDamage;
-            controls.runLine.textContent = Attacking ${monster.name} (${index + 1}/${plannedCandidates.length}) with ${chosenStamina} stam. Hit ${hitCount + 1}, current ${formatDamage(monster.personalDamage)}, left ${formatDamage(currentRemaining)}.;
+            controls.runLine.textContent = `Attacking ${monster.name} (${index + 1}/${plannedCandidates.length}) with ${chosenStamina} stam. Hit ${hitCount + 1}, current ${formatDamage(monster.personalDamage)}, left ${formatDamage(currentRemaining)}.`;
 
             const chosenSkill = getSkillByStamina(chosenStamina);
             const result = await quickJoinAndAttack(monster, chosenSkill.skillId, chosenStamina);
             if (!result.ok) {
               if (isRetryableAttackFailure(result)) {
                 stopReason = 'cooldown wait';
-                controls.runLine.textContent = Waiting on cooldown for ${monster.name} before retrying...;
+                controls.runLine.textContent = `Waiting on cooldown for ${monster.name} before retrying...`;
                 await delay(ATTACK_GAP_MS);
                 continue;
               }
               failed += 1;
               results.push(result);
               stopReason = 'attack failed';
-              controls.runLine.textContent = Attack failed on ${monster.name}.;
+              controls.runLine.textContent = `Attack failed on ${monster.name}.`;
               break;
             }
 
@@ -3576,12 +3576,12 @@
             dealtTotal += delta;
             hitCount += 1;
             monsterOk = true;
-            stopReason = ${chosenStamina}-stam hit used (est. ${formatDamage(chosenEstimate)});
+            stopReason = `${chosenStamina}-stam hit used (est. ${formatDamage(chosenEstimate)})`;
             await delay(ATTACK_GAP_MS);
 
             if (monster.limitRule && Number(monster.personalDamage || 0) >= Number(monster.limitRule.targetDamage || 0)) {
               stopReason = 'target reached';
-              controls.runLine.textContent = Finished ${monster.name}: now at ${formatDamage(monster.personalDamage)}.;
+              controls.runLine.textContent = `Finished ${monster.name}: now at ${formatDamage(monster.personalDamage)}.`;
               break;
             }
           }
@@ -3591,7 +3591,7 @@
             results.push({
               id: monster.dgmid || monster.name,
               ok: true,
-              html: Filled ${escapeHtml(monster.name)} with ${escapeHtml(String(hitCount))} hit(s)<br>Total dealt: <strong>${escapeHtml(formatDamage(dealtTotal))}</strong><br>Current DMG: ${escapeHtml(formatDamage(monster.personalDamage))}<br>Stopped: ${escapeHtml(stopReason)}
+              html: `Filled ${escapeHtml(monster.name)} with ${escapeHtml(String(hitCount))} hit(s)<br>Total dealt: <strong>${escapeHtml(formatDamage(dealtTotal))}</strong><br>Current DMG: ${escapeHtml(formatDamage(monster.personalDamage))}<br>Stopped: ${escapeHtml(stopReason)}`
             });
           }
         } catch (error) {
@@ -3599,9 +3599,9 @@
           results.push({
             id: monster.dgmid || monster.name,
             ok: false,
-            html: Failed: ${escapeHtml(error.message || 'Server error')}
+            html: `Failed: ${escapeHtml(error.message || 'Server error')}`
           });
-          controls.runLine.textContent = Unexpected error while filling ${monster.name}.;
+          controls.runLine.textContent = `Unexpected error while filling ${monster.name}.`;
         }
         await delay(ATTACK_GAP_MS);
       }
@@ -3619,7 +3619,7 @@
       controls.fillAllTreatQuotas.textContent = 'Fill Treat Quotas';
       controls.fillAllXpCaps.textContent = 'Fill EXP Caps';
       controls.runLine.dataset.busy = '';
-      controls.runLine.textContent = Quota fill finished. Success: ${success}, Failed/Skipped: ${results.length - success}.;
+      controls.runLine.textContent = `Quota fill finished. Success: ${success}, Failed/Skipped: ${results.length - success}.`;
       render();
       return true;
     };
@@ -3693,7 +3693,7 @@
         const raw = window.sessionStorage.getItem(STRAT_ORDER_KEY) || '[]';
         const arr = JSON.parse(raw);
         if (!Array.isArray(arr)) return [];
-        return arr.map((x) => Number(x)).filter(👎 => Number.isFinite(n) && !!getSkillById(n));
+        return arr.map((x) => Number(x)).filter((n) => Number.isFinite(n) && !!getSkillById(n));
       } catch {
         return [];
       }
@@ -3742,12 +3742,12 @@
       const total = calcStrategyTotalStam(order);
       const lim = readLimitConfig();
       btn.disabled = order.length === 0;
-      btn.textContent =🧠 Quick Join & Attack (${total || 0})` + (lim.useLimit && lim.limit > 0 ?  (limit ${fmtShort(lim.limit)}) : '');
+      btn.textContent = `🧠 Quick Join & Attack (${total || 0})` + (lim.useLimit && lim.limit > 0 ? ` (limit ${fmtShort(lim.limit)})` : '');
       return;
-      btn.textContent =🧠 Quick Join & Attack (${total || 0})` + (lim.useLimit && lim.limit > 0 ?  (limit ${fmtShort(lim.limit)}) : '');
+      btn.textContent = `🧠 Quick Join & Attack (${total || 0})` + (lim.useLimit && lim.limit > 0 ? ` (limit ${fmtShort(lim.limit)})` : '');
       return;
       const s = readStrat();
-      btn.textContent =🧠 Quick Join & Attack (${s.stam})` + (s.useLimit ?  (limit ${fmtShort(s.limit)}) : '');
+      btn.textContent = `🧠 Quick Join & Attack (${s.stam})` + (s.useLimit ? ` (limit ${fmtShort(s.limit)})` : '');
     }
 
     function setAttackBusy(busy) {
@@ -3799,13 +3799,13 @@
           skipped.push({
             id: monster.dgmid || monster.name,
             ok: false,
-            html: Skipped: target reached<br>${escapeHtml(buildLimitSummary(monster, liveUsageMap, allMonsters))}
+            html: `Skipped: target reached<br>${escapeHtml(buildLimitSummary(monster, liveUsageMap, allMonsters))}`
           });
           continue;
         }
 
         processedCount += 1;
-        controls.selectedCount.textContent = Selected: ${selected.size} | attacking ${processedCount}/${candidates.length};
+        controls.selectedCount.textContent = `Selected: ${selected.size} | attacking ${processedCount}/${candidates.length}`;
 
         try {
           const result = await quickJoinAndAttack(monster, sid, stamina);
@@ -3830,7 +3830,7 @@
           results.push({
             id: monster.dgmid || monster.name,
             ok: false,
-            html: Join: Failed<br>Attack: ${escapeHtml(error.message || 'Server error')}
+            html: `Join: Failed<br>Attack: ${escapeHtml(error.message || 'Server error')}`
           });
         }
         await delay(ATTACK_GAP_MS);
@@ -3844,7 +3844,7 @@
       });
 
       setAttackBusy(false);
-      controls.selectedCount.textContent = Selected: ${selected.size};
+      controls.selectedCount.textContent = `Selected: ${selected.size}`;
       updateStratRunLabel();
       render();
     }
@@ -3887,7 +3887,7 @@
             results.push({
               id: monster.dgmid || monster.name,
               ok: false,
-              html: Skipped: target reached<br>${escapeHtml(buildLimitSummary(monster, liveUsageMap, allMonsters))}
+              html: `Skipped: target reached<br>${escapeHtml(buildLimitSummary(monster, liveUsageMap, allMonsters))}`
             });
             break;
           }
@@ -3898,18 +3898,18 @@
               results.push({
                 id: monster.dgmid || monster.name,
                 ok: false,
-                html: Stopped: remaining <= limit<br>Remaining: <strong>${escapeHtml(formatDamage(remaining))}</strong> | Limit: ${escapeHtml(formatDamage(lim.limit))}
+                html: `Stopped: remaining <= limit<br>Remaining: <strong>${escapeHtml(formatDamage(remaining))}</strong> | Limit: ${escapeHtml(formatDamage(lim.limit))}`
               });
               break;
             }
           }
 
           processedHits += 1;
-          controls.selectedCount.textContent = Selected: ${selected.size} | attacking ${processedHits}/${candidates.length} (${totalStam} stam);
+          controls.selectedCount.textContent = `Selected: ${selected.size} | attacking ${processedHits}/${candidates.length} (${totalStam} stam)`;
 
           try {
             const r = await quickJoinAndAttack(monster, sk.skillId, sk.stamina);
-            const withId = { ...r, id: ${monster.dgmid || monster.name} • ${sk.name} (${sk.stamina}) };
+            const withId = { ...r, id: `${monster.dgmid || monster.name} • ${sk.name} (${sk.stamina})` };
             results.push(withId);
             if (r.ok) {
               okCount += 1;
@@ -3927,9 +3927,9 @@
             }
           } catch (e) {
             results.push({
-              id: ${monster.dgmid || monster.name} • ${sk.name} (${sk.stamina}),
+              id: `${monster.dgmid || monster.name} • ${sk.name} (${sk.stamina})`,
               ok: false,
-              html: Join: Failed<br>Attack: ${escapeHtml(e?.message || 'Server error')}
+              html: `Join: Failed<br>Attack: ${escapeHtml(e?.message || 'Server error')}`
             });
           }
 
@@ -3945,7 +3945,7 @@
       });
 
       setAttackBusy(false);
-      controls.selectedCount.textContent = Selected: ${selected.size};
+      controls.selectedCount.textContent = `Selected: ${selected.size}`;
       updateStratRunLabel();
       render();
     }
@@ -3986,7 +3986,7 @@
         chipsEl.innerHTML = order.length
           ? order.map((id, idx) => {
               const sk = getSkillById(id);
-              const label = sk ? ${sk.name} (${sk.stamina}) : Skill ${id};
+              const label = sk ? `${sk.name} (${sk.stamina})` : `Skill ${id}`;
               const upDis = idx === 0 ? 'is-disabled' : '';
               const dnDis = idx === order.length - 1 ? 'is-disabled' : '';
               return `
@@ -4000,7 +4000,7 @@
                 </div>
               `;
             }).join('')
-          : <div class="attack-strat-chip" style="opacity:.65;"><span class="attack-strat-chip-label">Pick attacks above to build a strategy.</span></div>;
+          : `<div class="attack-strat-chip" style="opacity:.65;"><span class="attack-strat-chip-label">Pick attacks above to build a strategy.</span></div>`;
       }
 
       updateStratRunLabel();
@@ -4128,7 +4128,7 @@
         <input type="checkbox" class="tm-sbw-monster-check" value="${escapeHtml(monster.id)}" ${checked ? 'checked' : ''}>
         <div class="tm-sbw-monster-card">
           <div class="tm-sbw-monster-top">
-            ${imageUrl ? <img class="tm-sbw-monster-img" src="${escapeHtml(imageUrl)}" alt=""> : ''}
+            ${imageUrl ? `<img class="tm-sbw-monster-img" src="${escapeHtml(imageUrl)}" alt="">` : ''}
             <div class="tm-sbw-monster-main">
               <div class="tm-sbw-monster-name">${escapeHtml(monster.name)}</div>
               <div class="tm-sbw-monster-meta">
@@ -4137,7 +4137,7 @@
               </div>
               <div class="tm-sbw-stats">
                 <span class="tm-sbw-user-dmg">Your DMG ${escapeHtml(formatDamage(monster.personalDamage))}</span>
-                ${limitRule ? <span class="tm-sbw-limit-note ${remaining === 0 ? 'done' : ''} ${slotLocked ? 'locked' : ''}">${escapeHtml(limitRule.item)} ${escapeHtml(String(limitRule.maxTargets))}x${escapeHtml(shortDamage(limitRule.targetDamage))} | hit today ${escapeHtml(String(usage.started))}/${escapeHtml(String(limitRule.maxTargets))} | untouched ${escapeHtml(String(untouched))} | left ${escapeHtml(formatDamage(remaining))}${slotLocked ? ' | slots full' : ''}</span> : ''}
+                ${limitRule ? `<span class="tm-sbw-limit-note ${remaining === 0 ? 'done' : ''} ${slotLocked ? 'locked' : ''}">${escapeHtml(limitRule.item)} ${escapeHtml(String(limitRule.maxTargets))}x${escapeHtml(shortDamage(limitRule.targetDamage))} | hit today ${escapeHtml(String(usage.started))}/${escapeHtml(String(limitRule.maxTargets))} | untouched ${escapeHtml(String(untouched))} | left ${escapeHtml(formatDamage(remaining))}${slotLocked ? ' | slots full' : ''}</span>` : ''}
                 <span>HP ${escapeHtml(monster.hp || '?')}</span>
                 <span>ATK ${escapeHtml(monster.atk || '?')}</span>
                 <span>DEF ${escapeHtml(monster.def || '?')}</span>
@@ -4146,7 +4146,7 @@
             </div>
           </div>
           <div class="tm-sbw-monster-actions">
-            ${monster.actionUrl ? <a class="btn tm-sbw-action" href="${escapeHtml(monster.actionUrl)}">${escapeHtml(monster.actionLabel)}</a> : ''}
+            ${monster.actionUrl ? `<a class="btn tm-sbw-action" href="${escapeHtml(monster.actionUrl)}">${escapeHtml(monster.actionLabel)}</a>` : ''}
           </div>
         </div>
       </label>
@@ -4190,7 +4190,7 @@
       ),
       data: attackJson,
       raw: attackResult.raw,
-      html: Join: ${escapeHtml(joinText)}<br>Attack: ${attackText}
+      html: `Join: ${escapeHtml(joinText)}<br>Attack: ${attackText}`
     };
   }
 
@@ -4239,7 +4239,7 @@
     if (raw) {
       return escapeHtml(raw);
     }
-    return No response while attacking <strong>${escapeHtml(fallbackName)}</strong>.;
+    return `No response while attacking <strong>${escapeHtml(fallbackName)}</strong>.`;
   }
 
   function isRetryableAttackFailure(result) {
@@ -4261,7 +4261,7 @@
       return;
     }
 
-    summaryEl.textContent = Processed: ${summary.processed} | Success: ${summary.success} | Failed: ${summary.failed};
+    summaryEl.textContent = `Processed: ${summary.processed} | Success: ${summary.success} | Failed: ${summary.failed}`;
     listEl.innerHTML = (summary.results || []).map((result) => `
       <div class="tm-sbw-result ${result.ok ? 'ok' : 'fail'}">
         <div class="tm-sbw-result-head">
@@ -4332,7 +4332,7 @@
       return directParsed;
     }
 
-    const myLink = doc.querySelector(.leaderboard-panel a[href*="player.php?pid=${USER_ID}"]);
+    const myLink = doc.querySelector(`.leaderboard-panel a[href*="player.php?pid=${USER_ID}"]`);
     if (myLink) {
       const row = myLink.closest('.lb-row');
       const rowDamage = row?.querySelector('.lb-dmg')?.textContent;
@@ -4370,7 +4370,7 @@
       monsterLower.includes(rule.nameIncludes) &&
       rule.locationIncludes.some((location) => locationLower.includes(location))
     );
-    return rule ? { ...rule, ruleKey: ${rule.item}|${rule.nameIncludes}|${rule.locationIncludes.join(',')}|${rule.maxTargets}|${rule.targetDamage} } : null;
+    return rule ? { ...rule, ruleKey: `${rule.item}|${rule.nameIncludes}|${rule.locationIncludes.join(',')}|${rule.maxTargets}|${rule.targetDamage}` } : null;
   }
 
   function hasReachedLimit(monster, usageMap) {
@@ -4428,20 +4428,20 @@
 
   function buildLimitSummary(monster, usageMap, allMonsters) {
     if (!monster.limitRule) {
-      return Current: ${formatDamage(monster.personalDamage)};
+      return `Current: ${formatDamage(monster.personalDamage)}`;
     }
     const usage = usageMap.get(monster.limitRule.ruleKey) || { started: 0, capped: 0 };
     const untouched = countUntouchedRuleMonsters(monster.limitRule, allMonsters, usageMap);
-    return ${monster.limitRule.item} ${monster.limitRule.maxTargets}x${shortDamage(monster.limitRule.targetDamage)} | hit today ${usage.started}/${monster.limitRule.maxTargets} | untouched ${untouched} | target ${formatDamage(monster.limitRule.targetDamage)} | current ${formatDamage(monster.personalDamage)};
+    return `${monster.limitRule.item} ${monster.limitRule.maxTargets}x${shortDamage(monster.limitRule.targetDamage)} | hit today ${usage.started}/${monster.limitRule.maxTargets} | untouched ${untouched} | target ${formatDamage(monster.limitRule.targetDamage)} | current ${formatDamage(monster.personalDamage)}`;
   }
 
   function shortDamage(value) {
     const num = Number(value || 0);
     if (num >= 1000000 && num % 1000000 === 0) {
-      return ${num / 1000000}M;
+      return `${num / 1000000}M`;
     }
     if (num >= 1000 && num % 1000 === 0) {
-      return ${num / 1000}K;
+      return `${num / 1000}K`;
     }
     return formatDamage(num);
   }
@@ -4458,14 +4458,14 @@
 
     // Endgame cleanup: once we're within about 10 normal hits, use 1-stam only
     // and keep going until the actual tracked damage reaches/exceeds the target.
-    // But do not do that when the monster is so low HP that we must overshoot
+    // But do not do that when the monster is so low HP that we *must* overshoot
     // the target on the killing hit to still qualify.
     if (!mustOvershootToQualify && remainingDamage <= baseline * 10) {
       return oneStam;
     }
 
     // If the monster is lower than the remaining target gap, choose the smallest
-    // supported hit that is expected to clear the damage target, not the HP.
+    // supported hit that is expected to clear the *damage target*, not the HP.
     if (mustOvershootToQualify) {
       const oversToTarget = options
         .filter((option) => option.estimatedDamage >= remainingDamage)
@@ -4515,7 +4515,7 @@
   }
 
   function summaryPill(text, extraClass = '') {
-    return <span class="tm-sbw-summary-pill ${extraClass}">${escapeHtml(text)}</span>;
+    return `<span class="tm-sbw-summary-pill ${extraClass}">${escapeHtml(text)}</span>`;
   }
 
   function renderError(message) {
@@ -4532,7 +4532,7 @@
       }
     }
 
-    board.innerHTML = <div class="h">All Shadowbridge Monsters</div><div class="tm-sbw-error">${escapeHtml(message)}</div>;
+    board.innerHTML = `<div class="h">All Shadowbridge Monsters</div><div class="tm-sbw-error">${escapeHtml(message)}</div>`;
   }
 
   function injectStyles() {
@@ -5303,7 +5303,7 @@
         if (!this.hasEstimate()) {
           return 'not learned yet';
         }
-        return ${formatDamage(this.getEstimate())} from ${state.samples.length} sample(s), high outliers ignored;
+        return `${formatDamage(this.getEstimate())} from ${state.samples.length} sample(s), high outliers ignored`;
       }
     };
   }
@@ -5412,7 +5412,7 @@
     const year = shifted.getUTCFullYear();
     const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
     const day = String(shifted.getUTCDate()).padStart(2, '0');
-    return ${year}-${month}-${day};
+    return `${year}-${month}-${day}`;
   }
 
   function readQuotaState(cycleKey) {
