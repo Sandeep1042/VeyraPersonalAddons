@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.20.1
+// @version      0.3.20.2
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -55,6 +55,8 @@
         'Monster Board: renamed the Shadowbridge board to Monster Board so it reads correctly across dungeon pages.',
         'Cube: added a standalone Monster Board view with sections for Merchant, PvE, Shadow Army, PvP, and Boss nodes.',
         'Cube Monster Board: node cards now expose linked node/location actions instead of leaving the IDs as plain text.',
+        'Cube Monster Board: expanded the board, loads the visible view faster, and added PvE select/quick attack controls.',
+        'Cube Monster Board: tightened the Cube layout, filtered PvP to the best open matches, and added section jump buttons.',
         'Cube: bundled the intro skipper into the AIO so the intro stays dismissed after you have already seen it.'
       ]
     },
@@ -3285,6 +3287,9 @@
   let cubeStateOverride = null;
   let cubeFaceDataOverride = null;
   const cubeNodeBoardCache = new Map();
+  let cubeBoardRenderSeq = 0;
+  const cubeSelectedMonsterIds = new Set();
+  let cubeMonsterById = new Map();
 
   function startOnce() {
     if (started) return;
@@ -3455,7 +3460,7 @@
 
     applyMode(currentMode);
 
-    if (button && !button.dataset.tmSbwBoardToggle) {
+      if (button && !button.dataset.tmSbwBoardToggle) {
       button.dataset.tmSbwBoardToggle = '1';
       button.addEventListener('click', (event) => {
         event.preventDefault();
@@ -3466,6 +3471,31 @@
     }
 
     board.addEventListener('click', async (event) => {
+      const selectPveButton = event.target.closest('[data-role="cube-select-pve"]');
+      if (selectPveButton) {
+        event.preventDefault();
+        Array.from(cubeMonsterById.values()).forEach((monster) => {
+          if (!monster.dead && monster.dgmid && monster.instanceId) cubeSelectedMonsterIds.add(monster.id);
+        });
+        syncCubePveControls(board);
+        return;
+      }
+
+      const clearPveButton = event.target.closest('[data-role="cube-clear-pve"]');
+      if (clearPveButton) {
+        event.preventDefault();
+        cubeSelectedMonsterIds.clear();
+        syncCubePveControls(board);
+        return;
+      }
+
+      const quickAttackButton = event.target.closest('[data-role="cube-quick-attack"]');
+      if (quickAttackButton) {
+        event.preventDefault();
+        await runCubeQuickAttack(board, quickAttackButton);
+        return;
+      }
+
       const armyButton = event.target.closest('[data-enter-army-match]');
       if (armyButton) {
         event.preventDefault();
@@ -3558,6 +3588,82 @@
         enterButton.textContent = originalText;
       }
     });
+
+    board.addEventListener('change', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || !target.classList.contains('tm-sbw-cube-monster-check')) {
+        return;
+      }
+      if (target.checked) cubeSelectedMonsterIds.add(target.value);
+      else cubeSelectedMonsterIds.delete(target.value);
+      syncCubePveControls(board);
+    });
+  }
+
+  function getSelectedCubeMonsters() {
+    return Array.from(cubeSelectedMonsterIds)
+      .map((id) => cubeMonsterById.get(id))
+      .filter((monster) => monster && !monster.dead && monster.dgmid && monster.instanceId);
+  }
+
+  function syncCubePveControls(board) {
+    const controls = board.querySelector('[data-role="cube-pve-controls"]');
+    const selectedCount = board.querySelector('[data-role="cube-selected-count"]');
+    const attackButtons = board.querySelectorAll('[data-role="cube-quick-attack"]');
+    const availableMonsters = Array.from(cubeMonsterById.values()).filter((monster) => !monster.dead && monster.dgmid && monster.instanceId);
+    const selected = getSelectedCubeMonsters();
+    if (controls) controls.style.display = availableMonsters.length ? '' : 'none';
+    if (selectedCount) selectedCount.textContent = `Selected: ${selected.length}`;
+    attackButtons.forEach((button) => {
+      button.disabled = !selected.length || Boolean(button.dataset.busy);
+    });
+    board.querySelectorAll('.tm-sbw-cube-monster-check').forEach((checkbox) => {
+      if (checkbox instanceof HTMLInputElement) checkbox.checked = cubeSelectedMonsterIds.has(checkbox.value);
+    });
+  }
+
+  async function runCubeQuickAttack(board, button) {
+    const selected = getSelectedCubeMonsters();
+    const runLine = board.querySelector('[data-role="cube-attack-line"]');
+    if (!selected.length) {
+      if (runLine) runLine.textContent = 'Pick at least one Cube PvE monster first.';
+      return;
+    }
+
+    const skillId = button.dataset.skillId || '0';
+    const staminaCost = button.dataset.stam || '1';
+    const buttons = board.querySelectorAll('[data-role="cube-quick-attack"]');
+    buttons.forEach((item) => {
+      item.dataset.busy = '1';
+      item.disabled = true;
+    });
+    if (runLine) runLine.textContent = `Attacking ${selected.length} selected Cube PvE monster(s)...`;
+
+    const results = [];
+    let done = 0;
+    try {
+      await runWithConcurrency(selected, 4, async (monster) => {
+        try {
+          const result = await quickJoinAndAttack(monster, skillId, staminaCost);
+          results.push(result);
+        } catch (error) {
+          results.push({ ok: false, messageText: error.message || 'Attack failed.' });
+        }
+        done += 1;
+        if (runLine) runLine.textContent = `Attacked ${done}/${selected.length} Cube PvE monster(s)...`;
+      });
+      const okCount = results.filter((result) => result?.ok).length;
+      if (runLine) runLine.textContent = `Quick attack finished: ${okCount}/${selected.length} succeeded.`;
+      cubeSelectedMonsterIds.clear();
+      await loadAndRenderCubeBoard(board);
+    } catch (error) {
+      if (runLine) runLine.textContent = error.message || 'Quick attack failed.';
+    } finally {
+      buttons.forEach((item) => {
+        delete item.dataset.busy;
+      });
+      syncCubePveControls(board);
+    }
   }
 
   async function fetchLocation(url, fallbackName) {
@@ -3760,6 +3866,7 @@
         <button type="button" class="btn tm-sbw-refresh">Refresh</button>
       </div>
       <div class="tm-sbw-summary"></div>
+      <nav class="tm-sbw-cube-jump" data-role="cube-section-jump" aria-label="Cube Monster Board sections"></nav>
       <div class="tm-sbw-run-line" data-role="cube-board-message"></div>
       <div class="tm-sbw-cube-sections"></div>
     `;
@@ -3776,6 +3883,7 @@
   }
 
   async function loadAndRenderCubeBoard(board) {
+    const renderSeq = ++cubeBoardRenderSeq;
     const nodes = getCubeNodes();
     if (!nodes.length) {
       renderCubeBoardLoading(board);
@@ -3801,26 +3909,32 @@
 
     const monstersByNodeId = new Map();
     const nodeBoardsByNodeId = new Map();
-    await Promise.all([
-      ...fetchTargets.map(async (node) => {
-        try {
-          const url = new URL('guild_dungeon_location.php', window.location.origin);
-          if (instanceId) url.searchParams.set('instance_id', instanceId);
-          url.searchParams.set('location_id', String(node.linked_location_id));
-          const location = await fetchLocation(url, node.name || `Node ${node.id}`);
-          monstersByNodeId.set(String(node.id), location.monsters.map((monster, index) => ({
-            ...monster,
-            id: `cube-${node.id}-${index}`,
-            nodeName: node.name || `Node ${node.id}`,
-            nodeTypeLabel: getCubeNodeTypeLabel(node),
-            roomUrl: url.toString()
-          })));
-        } catch (error) {
-          monstersByNodeId.set(String(node.id), []);
-          console.error('[TM Shadowbridge]', error);
-        }
-      }),
-      ...boardTargets.map(async (node) => {
+    renderCubeBoard(board, grouped, monstersByNodeId, nodeBoardsByNodeId, { detailLoading: Boolean(fetchTargets.length || boardTargets.length) });
+
+    await Promise.all(fetchTargets.map(async (node) => {
+      try {
+        const url = new URL('guild_dungeon_location.php', window.location.origin);
+        if (instanceId) url.searchParams.set('instance_id', instanceId);
+        url.searchParams.set('location_id', String(node.linked_location_id));
+        const location = await fetchLocation(url, node.name || `Node ${node.id}`);
+        monstersByNodeId.set(String(node.id), location.monsters.map((monster, index) => ({
+          ...monster,
+          id: `cube-${node.id}-${index}`,
+          nodeName: node.name || `Node ${node.id}`,
+          nodeTypeLabel: getCubeNodeTypeLabel(node),
+          roomUrl: url.toString()
+        })));
+      } catch (error) {
+        monstersByNodeId.set(String(node.id), []);
+        console.error('[TM Shadowbridge]', error);
+      }
+    }));
+
+    if (renderSeq !== cubeBoardRenderSeq) return;
+    renderCubeBoard(board, grouped, monstersByNodeId, nodeBoardsByNodeId, { detailLoading: Boolean(boardTargets.length) });
+
+    if (!boardTargets.length) return;
+    Promise.all(boardTargets.map(async (node) => {
         try {
           const boardData = await fetchCubeNodeBoard(node);
           nodeBoardsByNodeId.set(String(node.id), boardData);
@@ -3828,10 +3942,10 @@
           nodeBoardsByNodeId.set(String(node.id), null);
           console.error('[TM Shadowbridge]', error);
         }
-      })
-    ]);
-
-    renderCubeBoard(board, grouped, monstersByNodeId, nodeBoardsByNodeId);
+      })).then(() => {
+        if (renderSeq !== cubeBoardRenderSeq) return;
+        renderCubeBoard(board, grouped, monstersByNodeId, nodeBoardsByNodeId);
+      });
   }
 
   function renderCubeBoardLoading(board) {
@@ -3901,9 +4015,9 @@
   function createCubeGroups(nodes) {
     const groups = [
       { key: 'merchant', title: 'Merchant (non combat)', nodes: [] },
-      { key: 'pve', title: 'PvE', nodes: [] },
       { key: 'army', title: 'Shadow Army', nodes: [] },
       { key: 'pvp', title: 'PvP', nodes: [] },
+      { key: 'pve', title: 'PvE', nodes: [] },
       { key: 'boss', title: 'Boss', nodes: [] }
     ];
     const byKey = new Map(groups.map((group) => [group.key, group]));
@@ -4212,11 +4326,15 @@
     return `<div class="tm-sbw-cube-links">${links.join('')}</div>`;
   }
 
-  function renderCubeBoard(board, groups, monstersByNodeId, nodeBoardsByNodeId = new Map()) {
+  function renderCubeBoard(board, groups, monstersByNodeId, nodeBoardsByNodeId = new Map(), options = {}) {
     const allNodes = groups.flatMap((group) => group.nodes);
     const fetchedMonsters = Array.from(monstersByNodeId.values()).flat();
     const summary = board.querySelector('.tm-sbw-summary');
     const sections = board.querySelector('.tm-sbw-cube-sections');
+    cubeMonsterById = new Map(fetchedMonsters.map((monster) => [monster.id, monster]));
+    Array.from(cubeSelectedMonsterIds).forEach((id) => {
+      if (!cubeMonsterById.has(id)) cubeSelectedMonsterIds.delete(id);
+    });
 
     summary.innerHTML = [
       summaryPill(`${allNodes.length} cube nodes`),
@@ -4225,10 +4343,18 @@
     ].join('');
 
     sections.innerHTML = groups.map((group) => renderCubeGroup(group, monstersByNodeId, nodeBoardsByNodeId)).join('');
-    board.querySelector('.tm-sbw-sub').textContent = 'Standalone cube view with nodes grouped by combat type.';
+    renderCubeSectionJump(board, groups);
+    board.querySelector('.tm-sbw-sub').textContent = options.detailLoading
+      ? 'Monster Board is visible now; linked combat details are still loading.'
+      : 'Standalone cube view with nodes grouped by combat type.';
+    syncCubePveControls(board);
   }
 
   function renderCubeGroup(group, monstersByNodeId, nodeBoardsByNodeId = new Map()) {
+    if (group.key === 'pvp') {
+      return renderCubePvpGroup(group, nodeBoardsByNodeId);
+    }
+
     const cards = group.nodes.map((node) => {
       const monsters = monstersByNodeId.get(String(node.id)) || [];
       if (monsters.length) {
@@ -4246,10 +4372,12 @@
 
     return `
       <section class="tm-sbw-cube-section" data-section="${escapeHtml(group.key)}">
+        <span id="tm-cube-section-${escapeHtml(group.key)}" class="tm-sbw-section-anchor"></span>
         <div class="tm-sbw-cube-section-head">
           <h3>${escapeHtml(group.title)}</h3>
           <span>${escapeHtml(String(group.nodes.length))} nodes</span>
         </div>
+        ${group.key === 'pve' ? renderCubePveControls() : ''}
         <div class="tm-sbw-cube-grid">
           ${cards || '<div class="tm-sbw-empty">No nodes in this section.</div>'}
         </div>
@@ -4257,9 +4385,77 @@
     `;
   }
 
+  function renderCubePveControls() {
+    return `
+      <div class="tm-sbw-qol tm-sbw-cube-pve-controls" data-role="cube-pve-controls" style="display:none;">
+        <div class="qol-top">
+          <div class="qol-filters">
+            <span class="qol-title">PvE Targets</span>
+            <button class="btn" type="button" data-role="cube-select-pve">Select visible PvE</button>
+            <button class="btn" type="button" data-role="cube-clear-pve">Clear</button>
+            <span class="tm-sbw-selected-count" data-role="cube-selected-count">Selected: 0</span>
+          </div>
+          <div class="qol-attacks">
+            <button class="btn btnQuickJoinAttack" type="button" data-role="cube-quick-attack" data-skill-id="0" data-stam="1">Quick Join & Attack (1)</button>
+            <button class="btn btnQuickJoinAttack" type="button" data-role="cube-quick-attack" data-skill-id="-1" data-stam="10">Quick Join & Attack (10)</button>
+            <button class="btn btnQuickJoinAttack" type="button" data-role="cube-quick-attack" data-skill-id="-2" data-stam="50">Quick Join & Attack (50)</button>
+            <button class="btn btnQuickJoinAttack" type="button" data-role="cube-quick-attack" data-skill-id="-3" data-stam="100">Quick Join & Attack (100)</button>
+            <button class="btn btnQuickJoinAttack" type="button" data-role="cube-quick-attack" data-skill-id="-4" data-stam="200">Quick Join & Attack (200)</button>
+          </div>
+        </div>
+        <div class="tm-sbw-run-line" data-role="cube-attack-line"></div>
+      </div>
+    `;
+  }
+
+  function renderCubePvpGroup(group, nodeBoardsByNodeId = new Map()) {
+    const loadedBoards = group.nodes.map((node) => nodeBoardsByNodeId.get(String(node.id))).filter(Boolean);
+    const loading = loadedBoards.length < group.nodes.filter((node) => canEnterCubeNode(node)).length;
+    const openItems = group.nodes.flatMap((node) => {
+      const nodeBoard = nodeBoardsByNodeId.get(String(node.id));
+      if (!nodeBoard?.items?.length) return [];
+      return nodeBoard.items
+        .filter(isOpenCubePvpItem)
+        .map((item) => ({ item, node }));
+    }).sort((a, b) => {
+      if (a.item.hasPartialOpenSlots !== b.item.hasPartialOpenSlots) return a.item.hasPartialOpenSlots ? -1 : 1;
+      if (a.item.filledSlots !== b.item.filledSlots) return b.item.filledSlots - a.item.filledSlots;
+      return a.item.matchNo - b.item.matchNo;
+    }).slice(0, 5);
+    const cards = openItems.map(({ item, node }) => renderCubePvpMatchCard(item, node)).join('');
+
+    return `
+      <section class="tm-sbw-cube-section" data-section="${escapeHtml(group.key)}">
+        <span id="tm-cube-section-${escapeHtml(group.key)}" class="tm-sbw-section-anchor"></span>
+        <div class="tm-sbw-cube-section-head">
+          <h3>${escapeHtml(group.title)}</h3>
+          <span>${escapeHtml(String(openItems.length))} open match${openItems.length === 1 ? '' : 'es'} shown</span>
+        </div>
+        <div class="tm-sbw-cube-grid">
+          ${cards || `<div class="tm-sbw-empty">${loading ? 'Loading open PvP matches...' : 'No open PvP matches with slots available.'}</div>`}
+        </div>
+      </section>
+    `;
+  }
+
+  function isOpenCubePvpItem(item) {
+    const status = String(item?.status || '').toLowerCase();
+    if (status.includes('clear') || status.includes('closed') || status.includes('complete')) return false;
+    return Number(item?.missingSlots || 0) > 0 && Array.isArray(item?.openSlots) && item.openSlots.length > 0;
+  }
+
+  function renderCubeSectionJump(board, groups) {
+    const nav = board.querySelector('[data-role="cube-section-jump"]');
+    if (!nav) return;
+    nav.innerHTML = groups.map((group) => `
+      <a href="#tm-cube-section-${escapeHtml(group.key)}">${escapeHtml(group.title.replace(' (non combat)', ''))}</a>
+    `).join('');
+  }
+
   function renderCubeMonsterCard(monster, node) {
     const imageUrl = monster.image ? new URL(monster.image, window.location.origin).toString() : '';
     const statusClass = monster.dead ? 'dead' : 'alive';
+    const canQuickAttack = !monster.dead && monster.dgmid && monster.instanceId;
     return `
       <article class="tm-sbw-monster-card tm-sbw-cube-card ${statusClass}">
         <div class="tm-sbw-monster-top">
@@ -4283,6 +4479,12 @@
           </div>
         </div>
         <div class="tm-sbw-monster-actions">
+          ${canQuickAttack ? `
+            <label class="tm-sbw-cube-checkline">
+              <input type="checkbox" class="tm-sbw-cube-monster-check" value="${escapeHtml(monster.id)}" ${cubeSelectedMonsterIds.has(monster.id) ? 'checked' : ''}>
+              <span>Select</span>
+            </label>
+          ` : ''}
           ${monster.actionUrl ? `<a class="btn tm-sbw-action" href="${escapeHtml(monster.actionUrl)}">${escapeHtml(monster.actionLabel || 'Fight')}</a>` : ''}
           ${renderCubeEnterButton(node)}
         </div>
@@ -6203,6 +6405,25 @@
       .tm-sbw-action {
         text-decoration: none;
       }
+      .tm-sbw-cube-checkline {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 32px;
+        padding: 6px 10px;
+        border-radius: 10px;
+        border: 1px solid #2e3655;
+        background: rgba(255,255,255,.04);
+        color: #dbe4ff;
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .tm-sbw-cube-checkline input {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+      }
       .tm-sbw-error {
         margin-top: 12px;
         color: #fca5a5;
@@ -6212,15 +6433,17 @@
       }
       .stage > .tm-sbw-cube-board {
         display: none;
-        width: min(76vw, 980px);
-        max-width: 100%;
-        max-height: min(68vh, 760px);
-        margin: 0 auto;
-        overflow: auto;
+        width: min(72vw, 1080px);
+        max-width: calc(100vw - 360px);
+        max-height: none;
+        margin: 0 auto 36px;
+        overflow: visible;
         box-sizing: border-box;
       }
       .stage.tm-sbw-board-mode {
         min-height: 0 !important;
+        width: 100%;
+        align-items: stretch;
       }
       .stage.tm-sbw-board-mode .scene,
       .stage.tm-sbw-board-mode .nodeTableView {
@@ -6229,18 +6452,63 @@
       .stage.tm-sbw-board-mode > .tm-sbw-cube-board {
         display: block;
       }
+      .tm-sbw-cube-jump {
+        position: sticky;
+        top: 10px;
+        z-index: 30;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 7px;
+        width: fit-content;
+        max-width: 100%;
+        margin: 12px auto 0;
+        padding: 8px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,.12);
+        background: rgba(13,15,24,.84);
+        box-shadow: 0 10px 28px rgba(0,0,0,.38);
+        backdrop-filter: blur(8px);
+      }
+      .tm-sbw-cube-jump a {
+        display: block;
+        min-width: 72px;
+        padding: 7px 9px;
+        border-radius: 10px;
+        border: 1px solid rgba(160,210,255,.18);
+        background: rgba(59,111,155,.22);
+        color: #e4f2ff;
+        font-size: 11px;
+        font-weight: 900;
+        line-height: 1.15;
+        text-align: center;
+        text-decoration: none;
+      }
+      .tm-sbw-cube-jump a:hover {
+        background: rgba(255,211,105,.18);
+        border-color: rgba(255,211,105,.32);
+        color: #fff2c2;
+      }
       .tm-sbw-cube-sections {
         display: grid;
-        gap: 14px;
-        margin-top: 16px;
+        gap: 42px;
+        margin-top: 30px;
       }
       .tm-sbw-cube-section {
+        position: relative;
         display: grid;
-        gap: 10px;
-        padding: 12px;
-        border-radius: 12px;
-        background: #171923;
-        border: 1px solid #232437;
+        gap: 18px;
+        padding: 18px;
+        border-radius: 14px;
+        background: linear-gradient(180deg, rgba(24,27,40,.98), rgba(16,18,28,.98));
+        border: 1px solid rgba(255,255,255,.12);
+        box-shadow: 0 12px 30px rgba(0,0,0,.24);
+        scroll-margin-top: 18px;
+      }
+      .tm-sbw-section-anchor {
+        position: absolute;
+        top: -18px;
       }
       .tm-sbw-cube-section-head {
         display: flex;
@@ -6263,7 +6531,21 @@
       .tm-sbw-cube-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-        gap: 10px;
+        gap: 12px;
+      }
+      @media (max-width: 1100px) {
+        .stage > .tm-sbw-cube-board {
+          width: calc(100vw - 24px);
+          max-width: calc(100vw - 24px);
+        }
+        .tm-sbw-cube-jump {
+          top: 6px;
+        }
+        .tm-sbw-cube-jump a {
+          min-width: 58px;
+          padding: 6px 7px;
+          font-size: 10.5px;
+        }
       }
       .tm-sbw-cube-card {
         display: flex;
