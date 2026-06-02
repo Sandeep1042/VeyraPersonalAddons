@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.17
-// @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Shadowbridge monster board, Solo PvP bot.
+// @version      3.18
+// @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Shadowbridge monster board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
 // @match        *://www.demonicscans.org/*
@@ -10,11 +10,12 @@
 // @updateURL    https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.user.js
 // @downloadURL  https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.user.js
 // @grant        none
-// @run-at       document-idle
+// @run-at       document-start
 // ==/UserScript==
 
 /*
   Combined script generated locally from:
+  - cube-intro-skipper.user.js
   - Event.user.js
   - Graveyard.user.js
   - shadowbridge-warrens-monsters.user.js
@@ -30,24 +31,390 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.17',
+      version: '3.17',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.17'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.17');
+    try { document.documentElement.dataset.veyrahudAioVersion = '3.17'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v3.17');
   } catch (e) {
     // ignore
   }
 })();
 
+// ============================================================
+// Module: Cube Intro Skipper (cube-intro-skipper.user.js)
+// Loaded before the rest of the AIO so the cube intro can be hidden before first paint.
+// ============================================================
+
+(function () {
+  'use strict';
+
+  const path = String(window.location.pathname || '');
+  const IS_CUBE_ENTER_PAGE = /\/guild_dungeon_enter\.php$/i.test(path);
+  if (!IS_CUBE_ENTER_PAGE) return;
+
+  const SETTING_KEY = 'tm_cube_auto_skip_intro_v3';
+  const STYLE_ID = 'tmCubeIntroSkipperStyles';
+  const RELOAD_FLAG_PREFIX = 'tm_cube_intro_pre_dismissed_';
+
+  let dismissing = false;
+  let observer = null;
+
+  function readEnabled() {
+    try {
+      const raw = window.localStorage.getItem(SETTING_KEY);
+      return raw === null ? true : raw === 'true';
+    } catch (_error) {
+      return true;
+    }
+  }
+
+  function writeEnabled(value) {
+    try {
+      window.localStorage.setItem(SETTING_KEY, value ? 'true' : 'false');
+    } catch (_error) {
+      // ignore storage failures
+    }
+  }
+
+  function ensureStyles() {
+    if (!readEnabled() || document.getElementById(STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `
+      #introOverlay.isOpen,
+      #briefOverlay.isOpen {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function syncStyles() {
+    const style = document.getElementById(STYLE_ID);
+    if (readEnabled()) ensureStyles();
+    else if (style) style.remove();
+  }
+
+  function getInstanceId() {
+    const fromGlobal = Number(window.INSTANCE_ID || 0);
+    if (Number.isFinite(fromGlobal) && fromGlobal > 0) return String(fromGlobal);
+
+    try {
+      const fromUrl = new URLSearchParams(window.location.search).get('id');
+      const n = Number(fromUrl || 0);
+      if (Number.isFinite(n) && n > 0) return String(n);
+    } catch (_error) {
+      // ignore bad URL parsing
+    }
+
+    const refresh = document.querySelector('button[onclick*="guild_dungeon_enter.php?id="]');
+    const onclick = String(refresh?.getAttribute('onclick') || '');
+    const match = onclick.match(/guild_dungeon_enter\.php\?id=(\d+)/i);
+    return match ? match[1] : '';
+  }
+
+  function pageLooksLikeCube() {
+    if (document.getElementById('introOverlay') || document.getElementById('briefOverlay')) return true;
+    if (window.INSTANCE_ID && window.STATE && window.FACE_DATA) return true;
+    return /polyhedral crucible|cube instance/i.test(String(document.title || ''));
+  }
+
+  function introNeedsDismissal() {
+    if (window.STATE && window.STATE.intro_seen === false) return true;
+    return !!(
+      document.getElementById('introOverlay')?.classList.contains('isOpen') ||
+      document.getElementById('briefOverlay')?.classList.contains('isOpen')
+    );
+  }
+
+  async function postDismissIntro(instanceId) {
+    const fd = new FormData();
+    fd.append('action', 'dismiss_intro');
+    fd.append('instance_id', String(instanceId));
+    fd.append('node_id', String(window.STATE?.selected_node_id || window.STATE?.entry_node_id || 1));
+
+    const res = await fetch('guild_dungeon_cube_action.php', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin'
+    });
+    const data = await res.json().catch(() => null);
+    return !!(res.ok && data && data.ok);
+  }
+
+  async function runSkipper() {
+    if (dismissing || !readEnabled() || !pageLooksLikeCube() || !introNeedsDismissal()) return;
+    syncStyles();
+
+    const instanceId = getInstanceId();
+    if (!instanceId) return;
+
+    const reloadFlag = RELOAD_FLAG_PREFIX + instanceId;
+    if (window.sessionStorage.getItem(reloadFlag) === '1') return;
+
+    dismissing = true;
+    try {
+      const ok = await postDismissIntro(instanceId);
+      if (!ok) return;
+      window.sessionStorage.setItem(reloadFlag, '1');
+      window.location.reload();
+    } catch (_error) {
+      // If the server endpoint fails, leave the normal cube intro alone.
+    } finally {
+      dismissing = false;
+      syncStyles();
+    }
+  }
+
+  function addSettingsToggle() {
+    const container = document.getElementById('settingsDrawerContainer');
+    if (!container || document.getElementById('tmCubeAutoSkipIntroSetting')) return;
+
+    const group = document.createElement('div');
+    group.className = 'settings-group';
+    group.id = 'tmCubeAutoSkipIntroSetting';
+    group.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1);';
+
+    const title = document.createElement('div');
+    title.textContent = 'Cube';
+    title.style.cssText = 'font-weight:700;font-size:14px;';
+
+    const subtitle = document.createElement('div');
+    subtitle.textContent = 'Polyhedral Crucible helpers';
+    subtitle.style.cssText = 'font-size:12px;opacity:.7;';
+
+    const label = document.createElement('label');
+    label.className = 'settings-input switch-label';
+    label.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px;';
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = readEnabled();
+    input.id = 'ui-improvements:autoSkipCubeIntro';
+    input.setAttribute('data-setting-key', 'ui-improvements:autoSkipCubeIntro');
+
+    const slider = document.createElement('span');
+    slider.className = 'slider';
+
+    const text = document.createElement('span');
+    text.textContent = 'Auto-dismiss Cube intro';
+
+    input.addEventListener('change', () => {
+      writeEnabled(input.checked);
+      syncStyles();
+      if (input.checked) window.setTimeout(runSkipper, 50);
+    });
+
+    label.appendChild(input);
+    label.appendChild(slider);
+    label.appendChild(text);
+    group.appendChild(title);
+    group.appendChild(subtitle);
+    group.appendChild(label);
+    container.appendChild(group);
+  }
+
+  function watchPage() {
+    if (observer) observer.disconnect();
+    observer = new MutationObserver(() => {
+      addSettingsToggle();
+      syncStyles();
+      runSkipper();
+    });
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'aria-hidden']
+    });
+  }
+
+  function init() {
+    syncStyles();
+    addSettingsToggle();
+    watchPage();
+    runSkipper();
+    window.setTimeout(runSkipper, 150);
+    window.setTimeout(runSkipper, 500);
+    window.setTimeout(runSkipper, 1200);
+  }
+
+  syncStyles();
+  watchPage();
+  runSkipper();
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
+})();
+
+
 // ---- One-time update notification (shows once per version) ----
 (function(){
   'use strict';
 
-  const VERSION = '0.3.17';
+  const VERSION = '3.17';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
   const CHANGELOG = {
+    '0.3.42': {
+      date: '2026-05-02',
+      changes: [
+        'Wave 3: moved the native Wave Multi Targets hide/show logic into the real Graveyard source module so AIO rebuilds keep the dead/unclaimed-view behavior.'
+      ]
+    },
+    '0.3.40': {
+      date: '2026-05-02',
+      changes: [
+        'Wave 3: simplify dead/unclaimed detection to the page-state button text (Show Alive monsters), so the native Wave Multi Targets panel hides consistently on that view.'
+      ]
+    },
+    '0.3.39': {
+      date: '2026-05-02',
+      changes: [
+        'Wave 3: hide the native Wave Multi Targets panel (#waveQolPanel) on the dead/unclaimed view and restore it on the alive view.'
+      ]
+    },
+    '0.3.38': {
+      date: '2026-05-02',
+      changes: [
+        'Wave / Graveyard: added direct alive/unclaimed toggle detection plus a light resync loop so the wave multi-select controls settle correctly even after refreshes into the dead/unclaimed view.'
+      ]
+    },
+    '0.3.37': {
+      date: '2026-05-02',
+      changes: [
+        'Wave / Graveyard: the wave multi-select controls now follow the actual alive-vs-unclaimed toggle state instead of just checking whether alive cards still exist elsewhere in the DOM.'
+      ]
+    },
+    '0.3.36': {
+      date: '2026-04-30',
+      changes: [
+        'Wave / Graveyard: the wave multi-select controls now stay visible only when alive monsters with HP are on screen.',
+        'Those controls are hidden on the unclaimed/dead monster view.'
+      ]
+    },
+    '0.3.35': {
+      date: '2026-04-28',
+      changes: [
+        'Cube: switched the intro skipper to server-dismiss the intro through guild_dungeon_cube_action.php, then reload cleanly.'
+      ]
+    },
+    '0.3.34': {
+      date: '2026-04-28',
+      changes: [
+        'Cube: resets the auto-skip setting key so the fixed skipper defaults on even if an earlier test saved it off.'
+      ]
+    },
+    '0.3.33': {
+      date: '2026-04-28',
+      changes: [
+        'Cube: hide CSS no longer depends on an early html class that the page parser can overwrite, and hidden intro buttons are clicked programmatically.'
+      ]
+    },
+    '0.3.32': {
+      date: '2026-04-28',
+      changes: [
+        'Cube: marks cube enter pages for intro hiding immediately from the URL, before the overlay/title/global state exists.'
+      ]
+    },
+    '0.3.31': {
+      date: '2026-04-28',
+      changes: [
+        'Cube: loads the intro skipper at the very top of the AIO before update/changelog code.'
+      ]
+    },
+    '0.3.30': {
+      date: '2026-04-28',
+      changes: [
+        'Cube: the AIO now runs at document-start and loads the intro skipper first so the intro overlay is hidden before first paint.'
+      ]
+    },
+    '0.3.29': {
+      date: '2026-04-28',
+      changes: [
+        'Cube: hides the intro and briefing overlays while auto-skipping so they do not visibly pop up first.'
+      ]
+    },
+    '0.3.28': {
+      date: '2026-04-28',
+      changes: [
+        'Cube: added an auto-skipper for the Dungeon Creator intro and final Crucible briefing on new cube runs.',
+        'Added a Cube setting in the Veyra-HUD settings drawer so the auto-skip can be turned off.'
+      ]
+    },
+    '0.3.27': {
+      date: '2026-04-14',
+      changes: [
+        'Shadowbridge (D1): the expanded monster board panel itself is now height-bounded so it cannot keep stretching the page.',
+        'The board content now scrolls inside the panel while the rest of the page keeps its normal layout.'
+      ]
+    },
+    '0.3.26': {
+      date: '2026-04-14',
+      changes: [
+        'Shadowbridge (D1): the monster board now renders below the damage leaderboard instead of between the map and leaderboard.',
+        'Removed the board page-scroll lock so expanding the board no longer traps the rest of the page.'
+      ]
+    },
+    '0.3.25': {
+      date: '2026-04-14',
+      changes: [
+        'Shadowbridge (D1): expanding the monster board now opens it as a fixed overlay panel instead of stretching the page layout.',
+        'Background page scrolling is locked while the board is open so the leaderboard stays in place.'
+      ]
+    },
+    '0.3.24': {
+      date: '2026-04-14',
+      changes: [
+        'Shadowbridge (D1): the expanded monster board now scrolls inside its own panel instead of stretching the full page.',
+        'This keeps the leaderboard and page footer from being pushed far downward when the board is open.'
+      ]
+    },
+    '0.3.23': {
+      date: '2026-04-14',
+      changes: [
+        'Shadowbridge (D1): viewport-fill spacing now only applies while the monster board is collapsed.',
+        'Expanding the board lets the page height end naturally instead of forcing extra space below the leaderboard.'
+      ]
+    },
+    '0.3.22': {
+      date: '2026-04-14',
+      changes: [
+        'Shadowbridge (D1): the monster board now starts collapsed so the main map page stays compact until you expand it.',
+        'The collapsed/expanded board state is remembered between visits.'
+      ]
+    },
+    '0.3.21': {
+      date: '2026-04-14',
+      changes: [
+        'AIO version bump to publish the D1 viewport-height fix and rebuilt bundle cleanly.',
+        'Shadowbridge (D1): html/body/wrap sizing now fills the viewport so the page no longer appears to end at the leaderboard.'
+      ]
+    },
+    '0.3.20': {
+      date: '2026-04-14',
+      changes: [
+        'Synced the AIO builder with the live VeyraHUD template so rebuilds no longer regress the error filter, icon, or recent changelog entries.',
+        'Shadowbridge (D1): tightened the map page spacing and reduced repeated board filter DOM lookups.'
+      ]
+    },
+    '0.3.19': {
+      date: '2026-04-13',
+      changes: [
+        'Emberfall drops index: wave mob list now ignores graveyard (dead) cards so mobs donâ€™t show twice.',
+        'Emberfall helper: force-remove any leftover Hide/Show button from older versions.'
+      ]
+    },
+    '0.3.18': {
+      date: '2026-04-13',
+      changes: [
+        'Emberfall helper: removed the Hide/Show (collapse) button; it always renders fully open in the map modal.'
+      ]
+    },
     '0.3.17': {
       date: '2026-04-13',
       changes: [
@@ -67,7 +434,7 @@
       changes: [
         'AIO error toast now only triggers for actual AIO errors (ignores other userscripts/site errors).',
         'D1 strategy builder: internal stamina total helper no longer depends on a missing global name.',
-        'Solo PvP bot no longer prints “Unsupported page…” even if something calls it outside PvP.'
+        'Solo PvP bot no longer prints â€œUnsupported pageâ€¦â€ even if something calls it outside PvP.'
       ]
     },
     '0.3.14': {
@@ -227,17 +594,6 @@
     const m = String(v || '').match(/^(\\d+)\\.(\\d+)\\.(\\d+)/);
     if (!m) return null;
     return [Number(m[1]), Number(m[2]), Number(m[3])];
-  }
-
-  function semverGt(a, b){
-    const pa = semverParts(a);
-    const pb = semverParts(b);
-    if (!pa || !pb) return false;
-    for (let i = 0; i < 3; i++){
-      if (pa[i] > pb[i]) return true;
-      if (pa[i] < pb[i]) return false;
-    }
-    return false;
   }
 
   function showModal(unseenVersions){
@@ -441,15 +797,14 @@
     enabled: 'tm_emberfall_helper_enabled_v1',
     quests: 'tm_emberfall_quests_v1',
     dropsByMob: 'tm_emberfall_drops_by_mob_v1',
-    dropsSeedVersion: 'tm_emberfall_drops_seed_version_v1',
-    panelOpen: 'tm_emberfall_panel_open_v1'
+    dropsSeedVersion: 'tm_emberfall_drops_seed_version_v1'
   };
 
   // Seeded from your saved Emberfall battle pages so you don't have to open each mob manually.
   // If you later re-capture drops by visiting a battle page, those live values will be kept.
-  const DROPS_SEED_VERSION = '2026-04-10a';
+  const DROPS_SEED_VERSION = '2026-06-02a';
   const DROPS_SEED_COMPACT_JSON =
-    `{"arcaneback bear":{"mobName":"Arcaneback Bear","capturedAt":0,"items":[{"name":"Broken Oath Rune","tier":"EPIC","dropPct":65,"dmgReq":1200000,"locked":false},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":false},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2400000,"locked":false},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":false},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":false},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":false},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":false}],"mobKey":"arcaneback bear"},"arcanecrest hyena":{"mobName":"Arcanecrest Hyena","capturedAt":0,"items":[{"name":"Memory Ash","tier":"EPIC","dropPct":65,"dmgReq":1500000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":2500000,"locked":true},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanecrest hyena"},"arcanefang wolf":{"mobName":"Arcanefang Wolf","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":2500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Burnt Spellpage","tier":"COMMON","dropPct":80,"dmgReq":1000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanefang wolf"},"arcanehide boar":{"mobName":"Arcanehide Boar","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Hood","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Cracked Mana Lens","tier":"RARE","dropPct":45,"dmgReq":1800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Burnt Spellpage","tier":"COMMON","dropPct":70,"dmgReq":1200000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"arcanehide boar"},"hexpyre crow":{"mobName":"Hexpyre Crow","capturedAt":0,"items":[{"name":"Vaelith Sigil Fragment","tier":"EPIC","dropPct":45,"dmgReq":2200000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Ashscript Robe","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Black Ink Vial","tier":"RARE","dropPct":60,"dmgReq":1700000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Sealed Page","tier":"RARE","dropPct":80,"dmgReq":1300000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"hexpyre crow"},"runestag":{"mobName":"Runestag","capturedAt":0,"items":[{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":2600000,"locked":true},{"name":"Cracked Mana Lens","tier":"RARE","dropPct":40,"dmgReq":1900000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Starglass Shard","tier":"RARE","dropPct":75,"dmgReq":1500000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"runestag"},"sigilscale viper":{"mobName":"Sigilscale Viper","capturedAt":0,"items":[{"name":"Archive Ember Seal","tier":"EPIC","dropPct":60,"dmgReq":2000000,"locked":true},{"name":"Sister\\u0027s Ribbon Thread","tier":"EPIC","dropPct":35,"dmgReq":2200000,"locked":true},{"name":"Ward Thread","tier":"EPIC","dropPct":70,"dmgReq":1800000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Boots","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"sigilscale viper"},"spellfurnace lynx":{"mobName":"Spellfurnace Lynx","capturedAt":0,"items":[{"name":"Ward Thread","tier":"EPIC","dropPct":60,"dmgReq":2000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Ashscript Gloves","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Ashscript Staff","tier":"RARE","dropPct":100,"dmgReq":2800000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Observatory Gear","tier":"RARE","dropPct":65,"dmgReq":1800000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":60,"dmgReq":3000000,"locked":true}],"mobKey":"spellfurnace lynx"}}`;
+    `{"black banner footsoldier":{"mobName":"Black Banner Footsoldier","capturedAt":0,"items":[{"name":"Black Banner Scrap","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"black banner footsoldier"},"ashlance skirmisher":{"mobName":"Ashlance Skirmisher","capturedAt":0,"items":[{"name":"Broken Gate Iron","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Handwraps","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"ashlance skirmisher"},"iron-grave shieldbearer":{"mobName":"Iron-Grave Shieldbearer","capturedAt":0,"items":[{"name":"Woundseal Cloth","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Greaves","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"iron-grave shieldbearer"},"woundchant acolyte":{"mobName":"Woundchant Acolyte","capturedAt":0,"items":[{"name":"White Ash Bandage","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Handwraps","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"woundchant acolyte"},"siege maw hound":{"mobName":"Siege Maw Hound","capturedAt":0,"items":[{"name":"Siegefang Splinter","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Greaves","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Handwraps","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"siege maw hound"},"cinder-tusk warbeast":{"mobName":"Cinder-Tusk Warbeast","capturedAt":0,"items":[{"name":"Hollow Warbone","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Greaves","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"cinder-tusk warbeast"},"hollow standard-bearer":{"mobName":"Hollow Standard-Bearer","capturedAt":0,"items":[{"name":"Unfallen Oath Thread","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"hollow standard-bearer"},"last gate remnant":{"mobName":"Last Gate Remnant","capturedAt":0,"items":[{"name":"Dawnlit Prayer Bead","tier":"EPIC","dropPct":60,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Greaves","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"last gate remnant"},"memory of ten million":{"mobName":"Memory of Ten Million","capturedAt":0,"items":[{"name":"Unfallen Oath Thread","tier":"EPIC","dropPct":100,"dmgReq":5000000,"locked":true},{"name":"Arcane Treat S","tier":"RARE","dropPct":3,"dmgReq":3500000,"locked":true},{"name":"Full Hp Potion","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Mana Potion S","tier":"RARE","dropPct":2,"dmgReq":3500000,"locked":true},{"name":"Small Stamina Potion","tier":"RARE","dropPct":5,"dmgReq":5000000,"locked":true},{"name":"Emberfall Token","tier":"COMMON","dropPct":50,"dmgReq":3000000,"locked":true},{"name":"Last Gate Hood","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true},{"name":"Last Gate Vestment","tier":"COMMON","dropPct":100,"dmgReq":3000000,"locked":true}],"mobKey":"memory of ten million"}}`;
 
   function isEnabled() {
     const raw = window.localStorage.getItem(LS.enabled);
@@ -458,16 +813,6 @@
 
   function setEnabled(v) {
     window.localStorage.setItem(LS.enabled, v ? 'true' : 'false');
-  }
-
-  function isPanelOpen() {
-    const raw = window.localStorage.getItem(LS.panelOpen);
-    // Default open so it's discoverable (you can Hide it once and it will remember).
-    return raw === null ? true : raw === 'true';
-  }
-
-  function setPanelOpen(v) {
-    window.localStorage.setItem(LS.panelOpen, v ? 'true' : 'false');
   }
 
   function safeJsonParse(raw, fallback) {
@@ -504,7 +849,7 @@
   }
 
   function ensureDropsSeedInstalled() {
-    // Only seed once per version, and never overwrite existing mob entries.
+    // Keep the cache scoped to the current event seed so old event mobs do not linger.
     try {
       const currentSeed = window.localStorage.getItem(LS.dropsSeedVersion) || '';
       if (currentSeed === DROPS_SEED_VERSION) return;
@@ -513,23 +858,15 @@
       if (!seed || typeof seed !== 'object') return;
 
       const existing = loadDropsByMob();
-      let changed = false;
+      const next = {};
 
       for (const mobKey of Object.keys(seed)) {
-        if (!existing[mobKey]) {
-          existing[mobKey] = seed[mobKey];
-          changed = true;
-          continue;
-        }
-        const haveItems = Array.isArray(existing[mobKey].items) && existing[mobKey].items.length;
-        const seedItems = Array.isArray(seed[mobKey].items) && seed[mobKey].items.length;
-        if (!haveItems && seedItems) {
-          existing[mobKey] = seed[mobKey];
-          changed = true;
-        }
+        const current = existing[mobKey];
+        const haveItems = Array.isArray(current?.items) && current.items.length;
+        next[mobKey] = haveItems ? current : seed[mobKey];
       }
 
-      if (changed) saveDropsByMob(existing);
+      saveDropsByMob(next);
       window.localStorage.setItem(LS.dropsSeedVersion, DROPS_SEED_VERSION);
     } catch {
       // ignore
@@ -548,8 +885,8 @@
     return normName(s).toLowerCase();
   }
 
-  // Emberfall uses event_page id 7 in the nav, but wave/battle links point to event=8 in your snapshots.
-  const EMBERFALL_EVENT_IDS = new Set(['7', '8']);
+  // Emberfall has used event ids 7 and 8 before; The Last Dawn uses event id 9.
+  const EMBERFALL_EVENT_IDS = new Set(['7', '8', '9']);
 
   function getSearchParam(name) {
     try {
@@ -725,7 +1062,7 @@
     const text = normName(objectiveText);
 
     // Collect X x ItemName
-    // Example: "Objective: Collect 4 x Memory Ash. Drops in Arcane Wild Fringe."
+    // Example: "Objective: Collect 4 x Memory Ash. Drops in The Last Gate Battlefield."
     const mCollect = text.match(/Collect\s+(\d+)\s*x\s*([^.\n]+)/i);
     if (mCollect) {
       return { kind: 'item', qty: Number(mCollect[1]), name: normName(mCollect[2]) };
@@ -846,7 +1183,8 @@
 
   function getMobTypeLinksFromWavePage() {
     if (!isActiveWavePage()) return [];
-    const cards = Array.from(document.querySelectorAll('.monster-card[data-monster-id]'));
+    // On wave pages, both alive + graveyard (dead) monsters use .monster-card. Drops Index only needs alive.
+    const cards = Array.from(document.querySelectorAll('.monster-card[data-monster-id]:not([data-dead="1"])'));
     if (!cards.length) return [];
 
     const map = new Map(); // mobKey -> { mobName, url }
@@ -872,13 +1210,18 @@
     ensureHudButton();
 
     if (document.getElementById('tmEmberfallHelperPanel')) {
+      // Cleanup for old versions that created a collapse button / persisted hidden state.
+      try { document.getElementById('tmEmberfallHelperCollapse')?.remove(); } catch {}
+      try {
+        const body = document.getElementById('tmEmberfallHelperBody');
+        if (body) body.style.display = 'block';
+      } catch {}
+
       const toggle = document.getElementById('tmEmberfallHelperToggle');
       if (toggle) {
         toggle.textContent = isEnabled() ? 'Emberfall Helper ON' : 'Emberfall Helper OFF';
         toggle.style.background = isEnabled() ? '#1f9d63' : '#963838';
       }
-      const collapseBtn = document.getElementById('tmEmberfallHelperCollapse');
-      if (collapseBtn) collapseBtn.textContent = isPanelOpen() ? 'Hide' : 'Show';
       return;
     }
 
@@ -902,28 +1245,7 @@
     title.textContent = 'Emberfall Helper';
     Object.assign(title.style, { fontWeight: '800', color: '#fff' });
 
-    const collapse = document.createElement('button');
-    collapse.id = 'tmEmberfallHelperCollapse';
-    collapse.type = 'button';
-    collapse.textContent = isPanelOpen() ? 'Hide' : 'Show';
-    Object.assign(collapse.style, {
-      padding: '6px 10px',
-      borderRadius: '10px',
-      border: '1px solid rgba(255,255,255,0.12)',
-      background: 'rgba(255,255,255,0.06)',
-      color: '#fff',
-      cursor: 'pointer',
-      fontWeight: '700'
-    });
-    collapse.addEventListener('click', () => {
-      setPanelOpen(!isPanelOpen());
-      const body = document.getElementById('tmEmberfallHelperBody');
-      if (body) body.style.display = isPanelOpen() ? 'block' : 'none';
-      collapse.textContent = isPanelOpen() ? 'Hide' : 'Show';
-    });
-
     header.appendChild(title);
-    header.appendChild(collapse);
 
     const toggle = document.createElement('button');
     toggle.id = 'tmEmberfallHelperToggle';
@@ -948,7 +1270,7 @@
 
     const body = document.createElement('div');
     body.id = 'tmEmberfallHelperBody';
-    body.style.display = isPanelOpen() ? 'block' : 'none';
+    body.style.display = 'block';
     body.style.opacity = isEnabled() ? '1' : '0.55';
 
     const actions = document.createElement('div');
@@ -1089,7 +1411,7 @@
       const mobLinks = getMobTypeLinksFromWavePage();
       if (mobLinks.length) {
         const missing = mobLinks.filter((m) => !dropsByMob[normKey(m.mobName)]);
-        lines.push(`<div style="margin-top:10px;font-weight:800;color:#fff;">Arcane Wild Fringe Mobs</div>`);
+        lines.push(`<div style="margin-top:10px;font-weight:800;color:#fff;">The Last Gate Battlefield Mobs</div>`);
         lines.push(`<div style="color:#9aa0b8;margin-top:4px;">Mob types: <strong>${mobLinks.length}</strong> | Missing drop data: <strong>${missing.length}</strong></div>`);
         if (missing.length) {
           lines.push(`<div style="margin-top:6px;color:#c7cbdf;line-height:1.4;">Open one of these, then come back and hit <strong>Refresh Panel</strong>:</div>`);
@@ -1346,6 +1668,21 @@
 
   function hasGraveyard() {
     return !!document.querySelector(SELECTOR_CARD);
+  }
+
+  function isDeadLootViewActive() {
+    const text = document.body ? (document.body.textContent || '') : '';
+    return /\bShow Alive monsters\b/i.test(text);
+  }
+
+  function hasAliveWaveMonsters() {
+    if (isDeadLootViewActive()) return false;
+    return Array.from(document.querySelectorAll('.monster-card[data-monster-id]:not([data-dead="1"])')).some((card) => {
+      if (!(card instanceof HTMLElement)) return false;
+      const cs = window.getComputedStyle(card);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+      return /\bHP\b/i.test(card.textContent || '');
+    });
   }
 
   function getEligibleDeadCards() {
@@ -1737,6 +2074,18 @@
     applyButtonThemeFromReference(wrap);
   }
 
+  function syncWaveSizeControls() {
+    ensureWaveSizeControls();
+    const controls = document.getElementById('tmWaveSizeControls');
+    if (controls) controls.style.display = hasAliveWaveMonsters() ? '' : 'none';
+  }
+
+  function syncNativeWaveQolPanel() {
+    const panel = document.getElementById('waveQolPanel');
+    if (!panel) return;
+    panel.classList.toggle('tm-waveqol-hidden', isDeadLootViewActive());
+  }
+
   function findReferenceMultiTargetButton() {
     const selectors = [
       '#waveQolPanel .btnQuickJoinAttack:not([disabled])',
@@ -2077,6 +2426,10 @@
       #tmWaveSizeControls .btn:hover{ filter: brightness(1.06) !important; transform: translateY(-1px) !important; }
       #tmWaveSizeControls .btn:active{ filter: brightness(0.98) !important; transform: translateY(0) !important; }
       #tmWaveSizeControls .btn:disabled{ opacity:.6 !important; cursor:not-allowed !important; transform:none !important; }
+
+      #waveQolPanel.tm-waveqol-hidden{
+        display:none !important;
+      }
 
       /* Make our selects readable even during event themes */
       #tmLootControls select{
@@ -2871,7 +3224,8 @@
         const controls = document.getElementById('tmLootControls');
         if (controls) controls.style.display = 'none';
       }
-      ensureWaveSizeControls();
+      syncWaveSizeControls();
+      syncNativeWaveQolPanel();
     }, 250);
 
     const firstCard = document.querySelector('.monster-card[data-monster-id]');
@@ -2889,7 +3243,13 @@
       const t = e.target;
       if (!(t instanceof Element)) return;
       const id = t.id || '';
-      if (id === 'toggleDeadBtn' || id === 'toggleDeadBossBtn') {
+      const text = (t.textContent || '').trim();
+      if (
+        id === 'toggleDeadBtn' ||
+        id === 'toggleDeadBossBtn' ||
+        /\bShow Alive monsters\b/i.test(text) ||
+        /\bShow unclaimed kills\b/i.test(text)
+      ) {
         window.setTimeout(run, 250);
       }
     }, true);
@@ -2900,7 +3260,8 @@
   // Always install styles + observers so the UI works even if dead cards render later (page 1 often loads them after toggles).
   ensureStyles();
   applyCardSizeFromStorage();
-  ensureWaveSizeControls();
+  syncWaveSizeControls();
+  syncNativeWaveQolPanel();
 
   window.setTimeout(() => {
     // Only show controls if there are dead cards. Observers will handle later renders.
@@ -2914,8 +3275,14 @@
       ensureLootCheckboxes();
       maybeAutoLoadAllDeadPages();
     }
-    ensureWaveSizeControls();
+    syncWaveSizeControls();
+    syncNativeWaveQolPanel();
   }, 300);
+
+  window.setInterval(() => {
+    syncWaveSizeControls();
+    syncNativeWaveQolPanel();
+  }, 750);
 
   wireObservers();
 })();
@@ -2936,6 +3303,7 @@
   const DAMAGE_CACHE_KEY = 'tm_shadowbridge_damage_cache_v1';
   const CARD_SIZE_KEY = 'tm_monster_card_size_v1';
   const CARD_SIZE_LEGACY_KEYS = ['tm_sbw_card_size_v1', 'tm_graveyard_card_size_v1'];
+  const BOARD_COLLAPSED_KEY = 'tm_shadowbridge_board_collapsed_v1';
   const ATTACK_GAP_MS = 1100;
   const DAMAGE_FETCH_CONCURRENCY = 6;
   const USER_ID = getUserId();
@@ -2976,6 +3344,7 @@
     }
 
     injectStyles();
+    try { document.documentElement.classList.add('tm-sbw-map-page-root'); } catch {}
     try { document.body.classList.add('tm-sbw-map-page'); } catch {}
     init().catch((error) => {
       console.error('[TM Shadowbridge]', error);
@@ -3019,18 +3388,45 @@
     }
   }
 
+  function getSavedBoardCollapsed() {
+    try {
+      const raw = window.localStorage.getItem(BOARD_COLLAPSED_KEY);
+      if (raw === null || raw === undefined || raw === '') return true;
+      return raw === '1';
+    } catch {}
+    return true;
+  }
+
+  function setSavedBoardCollapsed(collapsed) {
+    try {
+      window.localStorage.setItem(BOARD_COLLAPSED_KEY, collapsed ? '1' : '0');
+    } catch {}
+  }
+
+  function applyBoardCollapsedState(board, collapsed) {
+    board.classList.toggle('is-collapsed', !!collapsed);
+    document.body?.classList.toggle('tm-sbw-board-collapsed', !!collapsed);
+    document.documentElement?.classList.toggle('tm-sbw-board-collapsed', !!collapsed);
+    const btn = board.querySelector('[data-role="toggle-board-collapse"]');
+    if (btn) {
+      btn.textContent = collapsed ? 'Expand Board' : 'Collapse Board';
+      btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      btn.setAttribute('title', collapsed ? 'Show the full monster board' : 'Hide the full monster board');
+    }
+  }
+
   function isMainDungeonPage() {
     const title = (document.title || '').toLowerCase();
     const hasTitle = title.includes(DUNGEON_NAME.toLowerCase());
 
     const hasMap = !!document.querySelector('.mapwrap, .mapframe');
-    const pinCount = Array.from(document.querySelectorAll('a.pin[href*=\"guild_dungeon_location.php\"]')).length;
+    const hasPin = !!document.querySelector('a.pin[href*="guild_dungeon_location.php"]');
 
     // Primary signal: map+pins exist.
-    if (hasMap && pinCount > 0) return true;
+    if (hasMap && hasPin) return true;
 
     // Fallback signal: title matches and pins exist (some layouts omit .mapwrap/.mapframe classes).
-    if (hasTitle && pinCount > 0) return true;
+    if (hasTitle && hasPin) return true;
 
     return false;
   }
@@ -3045,8 +3441,11 @@
       throw new Error('Could not find the dungeon map or location pins.');
     }
 
+    mapPanel.classList.add('tm-sbw-map-panel');
     const board = createBoardShell(pins.length);
-    mapPanel.insertAdjacentElement('afterend', board);
+    const leaderboardPanel = document.querySelector('.lb')?.closest('.panel');
+    const insertAfter = leaderboardPanel || mapPanel;
+    insertAfter.insertAdjacentElement('afterend', board);
 
     const locations = await Promise.all(
       pins.map(async (pin) => {
@@ -3127,7 +3526,10 @@
           <div class="h">All Shadowbridge Monsters</div>
           <div class="tm-sbw-sub">Loading monsters from ${locationCount} map locations...</div>
         </div>
-        <button type="button" class="btn tm-sbw-refresh">Refresh</button>
+        <div class="tm-sbw-head-actions">
+          <button type="button" class="btn" data-role="toggle-board-collapse">Expand Board</button>
+          <button type="button" class="btn tm-sbw-refresh">Refresh</button>
+        </div>
       </div>
       <div class="tm-sbw-summary"></div>
       <div class="tm-sbw-qol">
@@ -3247,6 +3649,8 @@
       }
     });
 
+    applyBoardCollapsedState(board, getSavedBoardCollapsed());
+
     return board;
   }
 
@@ -3300,6 +3704,7 @@
     const controls = {
       nameFilter: board.querySelector('[data-role="name-filter"]'),
       sizeFilter: board.querySelector('[data-role="size-filter"]'),
+      toggleCollapse: board.querySelector('[data-role="toggle-board-collapse"]'),
       aliveFilter: board.querySelector('[data-role="alive-filter"]'),
       deadFilter: board.querySelector('[data-role="dead-filter"]'),
       joinedFilter: board.querySelector('[data-role="joined-filter"]'),
@@ -3307,6 +3712,8 @@
       monsterGrid: board.querySelector('[data-role="monster-grid"]'),
       selectedCount: board.querySelector('[data-role="selected-count"]'),
       openSelected: board.querySelector('[data-role="open-selected"]'),
+      selectVisible: board.querySelector('[data-role="select-visible"]'),
+      clearSelected: board.querySelector('[data-role="clear-selected"]'),
       damageTest: board.querySelector('[data-role="damage-test"]'),
       oneHitQuota: board.querySelector('[data-role="one-hit-quota"]'),
       fillAllTreatQuotas: board.querySelector('[data-role="fill-all-treat-quotas"]'),
@@ -3321,7 +3728,7 @@
     const getRuleUsageMap = () => buildRuleUsageMap(allMonsters, quotaStore);
 
     const render = () => {
-      const visible = getVisibleMonsters(board, allMonsters);
+      const visible = getVisibleMonsters(controls, allMonsters);
       const usageMap = getRuleUsageMap();
       controls.monsterGrid.innerHTML = visible.map((monster) => renderMonsterChip(monster, selected.has(monster.id), usageMap, allMonsters)).join('');
       controls.selectedCount.textContent = `Selected: ${selected.size}`;
@@ -3352,14 +3759,20 @@
       controls.unjoinedFilter.addEventListener(eventName, render);
     });
 
-    board.querySelector('[data-role="select-visible"]')?.addEventListener('click', () => {
-      getVisibleMonsters(board, allMonsters).forEach((monster) => selected.add(monster.id));
+    controls.selectVisible?.addEventListener('click', () => {
+      getVisibleMonsters(controls, allMonsters).forEach((monster) => selected.add(monster.id));
       render();
     });
 
-    board.querySelector('[data-role="clear-selected"]')?.addEventListener('click', () => {
+    controls.clearSelected?.addEventListener('click', () => {
       selected.clear();
       render();
+    });
+
+    controls.toggleCollapse?.addEventListener('click', () => {
+      const next = !board.classList.contains('is-collapsed');
+      applyBoardCollapsedState(board, next);
+      setSavedBoardCollapsed(next);
     });
 
     controls.monsterGrid.addEventListener('change', (event) => {
@@ -3719,7 +4132,7 @@
       try { window.sessionStorage.setItem(STRAT_LIMIT_KEY, String(next.limit ?? 0)); } catch {}
     }
 
-    function calcStrategyTotalStam(order) {
+    function getStrategyTotalStam(order) {
       return (order || []).reduce((sum, id) => {
         const sk = getSkillById(id);
         return sum + (sk ? sk.stamina : 0);
@@ -3739,7 +4152,7 @@
       const btn = board.querySelector('[data-role="attack-strat-run"]');
       if (!btn) return;
       const order = readStrategyOrder();
-      const total = calcStrategyTotalStam(order);
+      const total = getStrategyTotalStam(order);
       const lim = readLimitConfig();
       btn.disabled = order.length === 0;
       btn.textContent = `🧠 Quick Join & Attack (${total || 0})` + (lim.useLimit && lim.limit > 0 ? ` (limit ${fmtShort(lim.limit)})` : '');
@@ -3851,7 +4264,7 @@
 
     async function runStrategyAttack() {
       const order = readStrategyOrder();
-      const totalStam = calcStrategyTotalStam(order);
+      const totalStam = getStrategyTotalStam(order);
       const lim = readLimitConfig();
 
       const candidates = allMonsters.filter((monster) =>
@@ -3979,7 +4392,7 @@
         limitEl.disabled = !lim.useLimit;
       }
 
-      const total = calcStrategyTotalStam(order);
+      const total = getStrategyTotalStam(order);
       if (totalEl) totalEl.textContent = String(total);
 
       if (chipsEl) {
@@ -4086,12 +4499,12 @@
     render();
   }
 
-  function getVisibleMonsters(board, monsters) {
-    const showAlive = board.querySelector('[data-role="alive-filter"]')?.checked;
-    const showDead = board.querySelector('[data-role="dead-filter"]')?.checked;
-    const showJoined = board.querySelector('[data-role="joined-filter"]')?.checked;
-    const showUnjoined = board.querySelector('[data-role="unjoined-filter"]')?.checked;
-    const nameFilter = (board.querySelector('[data-role="name-filter"]')?.value || '').trim();
+  function getVisibleMonsters(controls, monsters) {
+    const showAlive = !!controls.aliveFilter?.checked;
+    const showDead = !!controls.deadFilter?.checked;
+    const showJoined = !!controls.joinedFilter?.checked;
+    const showUnjoined = !!controls.unjoinedFilter?.checked;
+    const nameFilter = String(controls.nameFilter?.value || '').trim();
 
     return monsters.filter((monster) => {
       if (nameFilter && monster.name.toLowerCase() !== nameFilter) {
@@ -4520,16 +4933,17 @@
 
   function renderError(message) {
     let board = document.getElementById(PANEL_ID);
-    if (!board) {
-      board = document.createElement('section');
-      board.id = PANEL_ID;
-      board.className = 'panel tm-sbw-board';
-      const anchor = document.querySelector('.mapframe')?.closest('.panel');
-      if (anchor) {
-        anchor.insertAdjacentElement('afterend', board);
-      } else {
-        document.body.appendChild(board);
-      }
+      if (!board) {
+        board = document.createElement('section');
+        board.id = PANEL_ID;
+        board.className = 'panel tm-sbw-board';
+        const leaderboardPanel = document.querySelector('.lb')?.closest('.panel');
+        const anchor = leaderboardPanel || document.querySelector('.mapframe')?.closest('.panel');
+        if (anchor) {
+          anchor.insertAdjacentElement('afterend', board);
+        } else {
+          document.body.appendChild(board);
+        }
     }
 
     board.innerHTML = `<div class="h">All Shadowbridge Monsters</div><div class="tm-sbw-error">${escapeHtml(message)}</div>`;
@@ -4543,45 +4957,83 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
+      html.tm-sbw-map-page-root,
       body.tm-sbw-map-page{
-        /* Prevent weird extra whitespace at the bottom on some layouts */
-        min-height: 0 !important;
-        padding-bottom: 0 !important;
-        margin-bottom: 0 !important;
+        min-height: 100vh !important;
       }
+      body.tm-sbw-map-page{
+        padding-bottom: 0 !important;
+      }
+        body.tm-sbw-map-page.tm-sbw-board-collapsed .wrap{
+          min-height: calc(100vh - 74px) !important;
+        }
       body.tm-sbw-map-page .panel{
         min-height: 0 !important;
       }
-      body.tm-sbw-map-page .wrap{
-        padding-bottom: 0 !important;
-        margin-bottom: 0 !important;
+      body.tm-sbw-map-page .panel:empty{
+        display: none !important;
       }
-      .tm-sbw-board {
-        margin-top: 14px;
+      .tm-sbw-map-panel{
+        margin-bottom: 10px !important;
       }
-      .tm-sbw-head {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        align-items: center;
-        flex-wrap: wrap;
+      .tm-sbw-map-panel .legend{
+        margin-top: 6px !important;
       }
-      .tm-sbw-sub {
-        color: #94a3b8;
-        font-size: 13px;
-        margin-top: 4px;
-      }
-      .tm-sbw-summary {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 12px;
-      }
-      .tm-sbw-qol {
-        margin-top: 16px;
-        display: grid;
-        gap: 12px;
-      }
+        .tm-sbw-board {
+          margin-top: 10px;
+        }
+        body.tm-sbw-map-page .tm-sbw-board:not(.is-collapsed) {
+          max-height: calc(100vh - 120px);
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+        .tm-sbw-head {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        .tm-sbw-head-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          align-items: center;
+        }
+        .tm-sbw-sub {
+          color: #94a3b8;
+          font-size: 13px;
+          margin-top: 4px;
+        }
+        .tm-sbw-summary {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 12px;
+          flex: 0 0 auto;
+        }
+        .tm-sbw-qol {
+          margin-top: 16px;
+          display: grid;
+          gap: 12px;
+          min-height: 0;
+        }
+        .tm-sbw-board.is-collapsed .tm-sbw-qol {
+          display: none;
+        }
+        body.tm-sbw-map-page .tm-sbw-board:not(.is-collapsed) .tm-sbw-qol {
+          flex: 1 1 auto;
+          overflow-y: auto;
+          padding-right: 4px;
+        }
+        body.tm-sbw-map-page .tm-sbw-board:not(.is-collapsed) .tm-sbw-qol::-webkit-scrollbar {
+          width: 8px;
+        }
+        body.tm-sbw-map-page .tm-sbw-board:not(.is-collapsed) .tm-sbw-qol::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.18);
+          border-radius: 999px;
+        }
 
       /* ===== Wave-style Multi Target layout (D1) ===== */
       .tm-sbw-board .qol-top{
@@ -4866,10 +5318,16 @@
         font-size: 12px;
         margin-top: -2px;
       }
+      .tm-sbw-model-line:empty {
+        display: none;
+      }
       .tm-sbw-run-line {
         color: #fcd34d;
         font-size: 12px;
-        min-height: 16px;
+        min-height: 0;
+      }
+      .tm-sbw-run-line:empty {
+        display: none;
       }
       .tm-sbw-multi-select-box {
         max-height: 640px;
@@ -5722,7 +6180,8 @@
       await handleBattle();
       return;
     }
-    // Should never happen due to the hard-gate at the top, but stay silent if it does.
+
+    setStatus('Unsupported page for Solo PvP bot.');
     queueNext(1500);
   };
 
