@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.20.5
+// @version      0.3.20.6
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -31,11 +31,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.20.5',
+      version: '0.3.20.6',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.20.5'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.20.5');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.20.6'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.20.6');
   } catch (e) {
     // ignore
   }
@@ -45,7 +45,7 @@
 (function(){
   'use strict';
 
-  const APP_VERSION = '0.3.20.5';
+  const APP_VERSION = '0.3.20.6';
   const VERSION = '0.3.20';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
@@ -58,6 +58,7 @@
         'Cube Monster Board: node cards now expose linked node/location actions instead of leaving the IDs as plain text.',
         'Cube Monster Board: expanded the board, loads the visible view faster, and added PvE select/quick attack controls.',
         'Cube Monster Board: tightened the Cube layout, filtered PvP to the best open matches, and added section jump buttons.',
+        'Cube Monster Board: added a PvP readiness/timer badge to the section jumper.',
         'Cube: bundled the intro skipper into the AIO so the intro stays dismissed after you have already seen it.'
       ]
     },
@@ -3291,6 +3292,9 @@
   let cubeBoardRenderSeq = 0;
   const cubeSelectedMonsterIds = new Set();
   let cubeMonsterById = new Map();
+  let cubeJumpStatusTimer = 0;
+  let cubeJumpStatusGroups = [];
+  let cubeJumpStatusBoards = new Map();
 
   function startOnce() {
     if (started) return;
@@ -4349,8 +4353,11 @@
       ...groups.map((group) => summaryPill(`${group.title}: ${group.nodes.length}`))
     ].join('');
 
+    cubeJumpStatusGroups = groups;
+    cubeJumpStatusBoards = nodeBoardsByNodeId;
+    ensureCubeJumpStatusTimer();
     sections.innerHTML = groups.map((group) => renderCubeGroup(group, monstersByNodeId, nodeBoardsByNodeId)).join('');
-    renderCubeSectionJump(board, groups);
+    renderCubeSectionJump(board, groups, nodeBoardsByNodeId);
     board.querySelector('.tm-sbw-sub').textContent = options.detailLoading
       ? 'Monster Board is visible now; linked combat details are still loading.'
       : 'Standalone cube view with nodes grouped by combat type.';
@@ -4451,12 +4458,103 @@
     return Number(item?.missingSlots || 0) > 0 && Array.isArray(item?.openSlots) && item.openSlots.length > 0;
   }
 
-  function renderCubeSectionJump(board, groups) {
+  function renderCubeSectionJump(board, groups, nodeBoardsByNodeId = new Map()) {
     const nav = document.getElementById('tmSbwCubeJump') || board.querySelector('[data-role="cube-section-jump"]');
     if (!nav) return;
+    const status = getCubePvpJumpStatus(groups, nodeBoardsByNodeId);
     nav.innerHTML = groups.map((group) => `
       <a href="#tm-cube-section-${escapeHtml(group.key)}">${escapeHtml(group.title.replace(' (non combat)', ''))}</a>
-    `).join('');
+    `).join('') + `
+      <div class="tm-sbw-cube-pvp-status ${status.ready ? 'ready' : 'waiting'}">
+        ${escapeHtml(status.text)}
+      </div>
+    `;
+  }
+
+  function ensureCubeJumpStatusTimer() {
+    if (cubeJumpStatusTimer) return;
+    cubeJumpStatusTimer = window.setInterval(() => {
+      const nav = document.getElementById('tmSbwCubeJump');
+      if (!nav || !document.body?.classList.contains('tm-sbw-cube-board-active')) return;
+      const status = getCubePvpJumpStatus(cubeJumpStatusGroups, cubeJumpStatusBoards);
+      const statusEl = nav.querySelector('.tm-sbw-cube-pvp-status');
+      if (!statusEl) return;
+      statusEl.classList.toggle('ready', status.ready);
+      statusEl.classList.toggle('waiting', !status.ready);
+      statusEl.textContent = status.text;
+    }, 1000);
+  }
+
+  function getCubePvpJumpStatus(groups, nodeBoardsByNodeId = new Map()) {
+    const pvpGroup = groups.find((group) => group.key === 'pvp');
+    const pvpNodes = pvpGroup?.nodes || [];
+    const openItems = pvpNodes.flatMap((node) => {
+      const board = nodeBoardsByNodeId.get(String(node.id));
+      return (board?.items || []).filter(isOpenCubePvpItem);
+    });
+    if (openItems.length) {
+      return { ready: true, text: 'Ready PvP' };
+    }
+
+    const timerText = getCubePvpTimerText(pvpNodes);
+    return { ready: false, text: timerText ? `PvP ${timerText}` : 'PvP timer...' };
+  }
+
+  function getCubePvpTimerText(nodes) {
+    for (const node of nodes || []) {
+      const meta = node?.state_meta && typeof node.state_meta === 'object' && !Array.isArray(node.state_meta) ? node.state_meta : {};
+      const values = [
+        node?.pvp_timer,
+        node?.pvp_cooldown,
+        node?.pvp_cooldown_text,
+        node?.next_pvp_at,
+        node?.next_match_at,
+        meta.pvp_timer,
+        meta.pvp_cooldown,
+        meta.pvp_cooldown_text,
+        meta.next_pvp_at,
+        meta.next_match_at,
+        meta.timer,
+        meta.cooldown,
+        meta.cooldown_text
+      ];
+      for (const value of values) {
+        const text = formatCubeTimerValue(value);
+        if (text) return text;
+      }
+    }
+
+    const pageText = cleanText(document.body?.textContent || '');
+    const pvpTimerMatch = pageText.match(/(?:PvP|PVP)[^0-9]{0,40}((?:\d+\s*d\s*)?(?:\d{1,2}:)?\d{1,2}:\d{2}|\d+\s*(?:sec|secs|second|seconds|min|mins|minute|minutes|hour|hours))/i);
+    return pvpTimerMatch?.[1] ? cleanText(pvpTimerMatch[1]) : '';
+  }
+
+  function formatCubeTimerValue(value) {
+    if (value === null || value === undefined || value === '') return '';
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      if (value <= 0) return '';
+      if (value > 1000000000) {
+        const secondsUntil = Math.max(0, Math.floor(value - Date.now() / 1000));
+        return secondsUntil ? formatCubeDuration(secondsUntil) : '';
+      }
+      return formatCubeDuration(value);
+    }
+    const text = cleanText(value);
+    if (!text || /ready|open|join/i.test(text)) return '';
+    const epoch = Number(text);
+    if (Number.isFinite(epoch) && epoch > 0) return formatCubeTimerValue(epoch);
+    const timeMatch = text.match(/(?:\d+\s*d\s*)?(?:\d{1,2}:)?\d{1,2}:\d{2}|\d+\s*(?:sec|secs|second|seconds|min|mins|minute|minutes|hour|hours)/i);
+    return timeMatch ? cleanText(timeMatch[0]) : text;
+  }
+
+  function formatCubeDuration(totalSeconds) {
+    let seconds = Math.max(0, Math.floor(Number(totalSeconds || 0)));
+    const hours = Math.floor(seconds / 3600);
+    seconds -= hours * 3600;
+    const minutes = Math.floor(seconds / 60);
+    seconds -= minutes * 60;
+    if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
   }
 
   function renderCubeMonsterCard(monster, node) {
@@ -6500,6 +6598,27 @@
         border-color: rgba(255,211,105,.32);
         color: #fff2c2;
       }
+      .tm-sbw-cube-pvp-status {
+        margin-top: 2px;
+        padding: 8px 9px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 950;
+        line-height: 1.15;
+        text-align: center;
+        border: 1px solid rgba(255,255,255,.14);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+      }
+      .tm-sbw-cube-pvp-status.waiting {
+        color: #fee2e2;
+        background: rgba(153, 27, 27, .84);
+        border-color: rgba(248, 113, 113, .42);
+      }
+      .tm-sbw-cube-pvp-status.ready {
+        color: #dcfce7;
+        background: rgba(22, 101, 52, .86);
+        border-color: rgba(74, 222, 128, .46);
+      }
       .tm-sbw-cube-sections {
         display: grid;
         gap: 42px;
@@ -6555,6 +6674,10 @@
         .tm-sbw-cube-jump a {
           min-width: 58px;
           padding: 6px 7px;
+          font-size: 10.5px;
+        }
+        .tm-sbw-cube-pvp-status {
+          padding: 7px;
           font-size: 10.5px;
         }
       }
@@ -6883,6 +7006,12 @@
           width: 78px;
           padding: 7px 6px;
           font-size: 10.5px;
+        }
+        .tm-sbw-cube-pvp-status {
+          width: 78px;
+          padding: 7px 6px;
+          font-size: 10.5px;
+          box-sizing: border-box;
         }
         .tm-sbw-cube-sections {
           gap: 34px;
