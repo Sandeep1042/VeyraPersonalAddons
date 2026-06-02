@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.20.4
+// @version      0.3.20.5
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -31,11 +31,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.20.4',
+      version: '0.3.20.5',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.20.4'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.20.4');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.20.5'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.20.5');
   } catch (e) {
     // ignore
   }
@@ -45,7 +45,7 @@
 (function(){
   'use strict';
 
-  const APP_VERSION = '0.3.20.4';
+  const APP_VERSION = '0.3.20.5';
   const VERSION = '0.3.20';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
@@ -3452,6 +3452,7 @@
       try { sessionStorage.setItem(storageKey, currentMode); } catch {}
       stage.classList.toggle('table-mode', currentMode === 'table');
       stage.classList.toggle('tm-sbw-board-mode', currentMode === 'board');
+      document.body?.classList.toggle('tm-sbw-cube-board-active', currentMode === 'board');
       if (board) board.setAttribute('aria-hidden', currentMode === 'board' ? 'false' : 'true');
       if (button) {
         button.disabled = false;
@@ -3867,10 +3868,15 @@
         <button type="button" class="btn tm-sbw-refresh">Refresh</button>
       </div>
       <div class="tm-sbw-summary"></div>
-      <nav class="tm-sbw-cube-jump" data-role="cube-section-jump" aria-label="Cube Monster Board sections"></nav>
+      <nav id="tmSbwCubeJump" class="tm-sbw-cube-jump" data-role="cube-section-jump" aria-label="Cube Monster Board sections"></nav>
       <div class="tm-sbw-run-line" data-role="cube-board-message"></div>
       <div class="tm-sbw-cube-sections"></div>
     `;
+
+    const jump = board.querySelector('[data-role="cube-section-jump"]');
+    if (jump && document.body && jump.parentElement !== document.body) {
+      document.body.appendChild(jump);
+    }
 
     board.querySelector('.tm-sbw-refresh')?.addEventListener('click', () => {
       loadAndRenderCubeBoard(board).catch((error) => {
@@ -4446,7 +4452,7 @@
   }
 
   function renderCubeSectionJump(board, groups) {
-    const nav = board.querySelector('[data-role="cube-section-jump"]');
+    const nav = document.getElementById('tmSbwCubeJump') || board.querySelector('[data-role="cube-section-jump"]');
     if (!nav) return;
     nav.innerHTML = groups.map((group) => `
       <a href="#tm-cube-section-${escapeHtml(group.key)}">${escapeHtml(group.title.replace(' (non combat)', ''))}</a>
@@ -6453,18 +6459,21 @@
       .stage.tm-sbw-board-mode > .tm-sbw-cube-board {
         display: block;
       }
+      body:not(.tm-sbw-cube-board-active) .tm-sbw-cube-jump {
+        display: none !important;
+      }
       .tm-sbw-cube-jump {
-        position: sticky;
-        top: 10px;
-        z-index: 30;
+        position: fixed;
+        top: 92px;
+        right: 14px;
+        z-index: 2147482500;
         display: flex;
-        flex-direction: row;
-        flex-wrap: wrap;
-        justify-content: center;
+        flex-direction: column;
+        align-items: stretch;
         gap: 7px;
-        width: fit-content;
-        max-width: 100%;
-        margin: 12px auto 0;
+        width: auto;
+        max-width: 132px;
+        margin: 0;
         padding: 8px;
         border-radius: 14px;
         border: 1px solid rgba(255,255,255,.12);
@@ -6474,7 +6483,7 @@
       }
       .tm-sbw-cube-jump a {
         display: block;
-        min-width: 72px;
+        min-width: 92px;
         padding: 7px 9px;
         border-radius: 10px;
         border: 1px solid rgba(160,210,255,.18);
@@ -6540,7 +6549,8 @@
           max-width: calc(100vw - 24px);
         }
         .tm-sbw-cube-jump {
-          top: 6px;
+          top: 82px;
+          right: 8px;
         }
         .tm-sbw-cube-jump a {
           min-width: 58px;
