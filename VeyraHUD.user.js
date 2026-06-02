@@ -3284,6 +3284,7 @@
   let mo = null;
   let cubeStateOverride = null;
   let cubeFaceDataOverride = null;
+  const cubeNodeBoardCache = new Map();
 
   function startOnce() {
     if (started) return;
@@ -3465,6 +3466,69 @@
     }
 
     board.addEventListener('click', async (event) => {
+      const armyButton = event.target.closest('[data-enter-army-match]');
+      if (armyButton) {
+        event.preventDefault();
+        const node = getCubeNodes().find((item) => String(item.id) === String(armyButton.dataset.nodeId));
+        if (!node) return;
+        const matchNo = Number(armyButton.dataset.enterArmyMatch || 0);
+        if (!matchNo) return;
+        const originalText = armyButton.textContent;
+        armyButton.disabled = true;
+        armyButton.textContent = 'Opening...';
+        try {
+          const data = await postCubeArmyAction('enter_fight', {
+            instance_id: getCubeInstanceId(),
+            node_id: node.id,
+            match_no: matchNo
+          });
+          if (data.redirect) {
+            window.location.href = data.redirect;
+            return;
+          }
+          showCubeBoardMessage(board, data.message || 'Army fight updated.');
+          cubeNodeBoardCache.clear();
+          await loadAndRenderCubeBoard(board);
+        } catch (error) {
+          showCubeBoardMessage(board, error.message || 'Could not open that army fight.');
+        } finally {
+          armyButton.disabled = false;
+          armyButton.textContent = originalText;
+        }
+        return;
+      }
+
+      const pvpSlotButton = event.target.closest('[data-pvp-join-slot]');
+      if (pvpSlotButton) {
+        event.preventDefault();
+        const node = getCubeNodes().find((item) => String(item.id) === String(pvpSlotButton.dataset.nodeId));
+        if (!node) return;
+        const matchNo = Number(pvpSlotButton.dataset.matchNo || 0);
+        const slotIndex = Number(pvpSlotButton.dataset.pvpJoinSlot || 0);
+        if (!matchNo || !slotIndex) return;
+        const originalText = pvpSlotButton.textContent;
+        pvpSlotButton.disabled = true;
+        pvpSlotButton.textContent = 'Joining...';
+        try {
+          const data = await postPvpStyleAction('pick_slot', {
+            source: 'cube',
+            instance_id: getCubeInstanceId(),
+            node_id: node.id,
+            match_no: matchNo,
+            slot_index: slotIndex
+          });
+          showCubeBoardMessage(board, data.message || `Joined slot #${slotIndex}.`);
+          cubeNodeBoardCache.clear();
+          await loadAndRenderCubeBoard(board);
+        } catch (error) {
+          showCubeBoardMessage(board, error.message || 'Could not join that PvP slot.');
+        } finally {
+          pvpSlotButton.disabled = false;
+          pvpSlotButton.textContent = originalText;
+        }
+        return;
+      }
+
       const enterButton = event.target.closest('[data-enter-node]');
       if (!enterButton) return;
       event.preventDefault();
@@ -3730,28 +3794,44 @@
       const group = getCubeNodeGroup(node);
       return node.linked_location_id && (group === 'pve' || group === 'boss');
     });
+    const boardTargets = nodes.filter((node) => {
+      const type = String(node.type || '').toLowerCase();
+      return (type === 'army' || type === 'pvp') && canEnterCubeNode(node);
+    });
 
     const monstersByNodeId = new Map();
-    await Promise.all(fetchTargets.map(async (node) => {
-      try {
-        const url = new URL('guild_dungeon_location.php', window.location.origin);
-        if (instanceId) url.searchParams.set('instance_id', instanceId);
-        url.searchParams.set('location_id', String(node.linked_location_id));
-        const location = await fetchLocation(url, node.name || `Node ${node.id}`);
-        monstersByNodeId.set(String(node.id), location.monsters.map((monster, index) => ({
-          ...monster,
-          id: `cube-${node.id}-${index}`,
-          nodeName: node.name || `Node ${node.id}`,
-          nodeTypeLabel: getCubeNodeTypeLabel(node),
-          roomUrl: url.toString()
-        })));
-      } catch (error) {
-        monstersByNodeId.set(String(node.id), []);
-        console.error('[TM Shadowbridge]', error);
-      }
-    }));
+    const nodeBoardsByNodeId = new Map();
+    await Promise.all([
+      ...fetchTargets.map(async (node) => {
+        try {
+          const url = new URL('guild_dungeon_location.php', window.location.origin);
+          if (instanceId) url.searchParams.set('instance_id', instanceId);
+          url.searchParams.set('location_id', String(node.linked_location_id));
+          const location = await fetchLocation(url, node.name || `Node ${node.id}`);
+          monstersByNodeId.set(String(node.id), location.monsters.map((monster, index) => ({
+            ...monster,
+            id: `cube-${node.id}-${index}`,
+            nodeName: node.name || `Node ${node.id}`,
+            nodeTypeLabel: getCubeNodeTypeLabel(node),
+            roomUrl: url.toString()
+          })));
+        } catch (error) {
+          monstersByNodeId.set(String(node.id), []);
+          console.error('[TM Shadowbridge]', error);
+        }
+      }),
+      ...boardTargets.map(async (node) => {
+        try {
+          const boardData = await fetchCubeNodeBoard(node);
+          nodeBoardsByNodeId.set(String(node.id), boardData);
+        } catch (error) {
+          nodeBoardsByNodeId.set(String(node.id), null);
+          console.error('[TM Shadowbridge]', error);
+        }
+      })
+    ]);
 
-    renderCubeBoard(board, grouped, monstersByNodeId);
+    renderCubeBoard(board, grouped, monstersByNodeId, nodeBoardsByNodeId);
   }
 
   function renderCubeBoardLoading(board) {
@@ -3923,6 +4003,196 @@
     return url.toString();
   }
 
+  function getCubeNodeUrl(node) {
+    const type = String(node?.type || '').toLowerCase();
+    const instanceId = getCubeInstanceId();
+    const nodeId = String(node?.id || '');
+    if (!nodeId) return '';
+    if (type === 'pvp') {
+      const url = new URL('pvp_style_node.php', window.location.origin);
+      url.searchParams.set('source', 'cube');
+      if (instanceId) url.searchParams.set('instance_id', instanceId);
+      url.searchParams.set('node_id', nodeId);
+      return url.toString();
+    }
+    if (type === 'army') {
+      const candidates = [
+        `guild_dungeon_cube_army_node.php?instance_id=${encodeURIComponent(instanceId)}&node_id=${encodeURIComponent(nodeId)}`,
+        `guild_dungeon_cube_army.php?instance_id=${encodeURIComponent(instanceId)}&node_id=${encodeURIComponent(nodeId)}`
+      ];
+      return new URL(candidates[0], window.location.origin).toString();
+    }
+    return '';
+  }
+
+  async function fetchCubeNodeBoard(node) {
+    const type = String(node?.type || '').toLowerCase();
+    const cacheKey = `${type}:${getCubeInstanceId()}:${node?.id || ''}`;
+    const cached = cubeNodeBoardCache.get(cacheKey);
+    if (cached && Date.now() - cached.loadedAt < 15000) return cached.data;
+
+    const urls = getCubeNodeFetchUrls(node);
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, { credentials: 'include' });
+        if (!response.ok) continue;
+        const html = await response.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const data = type === 'army' ? parseArmyNodeBoard(html, doc, node, url) : parsePvpNodeBoard(doc, node, url);
+        if (data && Array.isArray(data.items)) {
+          cubeNodeBoardCache.set(cacheKey, { loadedAt: Date.now(), data });
+          return data;
+        }
+      } catch (_error) {
+        // Try the next likely URL.
+      }
+    }
+    try {
+      const redirect = await getCubeNodeRedirect(node);
+      if (redirect) {
+        const response = await fetch(redirect, { credentials: 'include' });
+        if (response.ok) {
+          const html = await response.text();
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const data = type === 'army' ? parseArmyNodeBoard(html, doc, node, redirect) : parsePvpNodeBoard(doc, node, redirect);
+          if (data && Array.isArray(data.items)) {
+            cubeNodeBoardCache.set(cacheKey, { loadedAt: Date.now(), data });
+            return data;
+          }
+        }
+      }
+    } catch (_error) {
+      // If the redirect probe fails, fall back to the node summary card.
+    }
+    return null;
+  }
+
+  async function getCubeNodeRedirect(node) {
+    const data = await postCubeAction('enter_node', { node_id: node.id, face_key: node.face_key });
+    if (data.state) {
+      cubeStateOverride = data.state;
+      try { window.STATE = data.state; } catch {}
+    }
+    return data.redirect ? new URL(data.redirect, window.location.origin).toString() : '';
+  }
+
+  function getCubeNodeFetchUrls(node) {
+    const type = String(node?.type || '').toLowerCase();
+    const instanceId = getCubeInstanceId();
+    const nodeId = String(node?.id || '');
+    if (type === 'pvp') {
+      const url = new URL('pvp_style_node.php', window.location.origin);
+      url.searchParams.set('source', 'cube');
+      if (instanceId) url.searchParams.set('instance_id', instanceId);
+      url.searchParams.set('node_id', nodeId);
+      return [url.toString()];
+    }
+    if (type === 'army') {
+      return [
+        new URL(`guild_dungeon_cube_army_node.php?instance_id=${encodeURIComponent(instanceId)}&node_id=${encodeURIComponent(nodeId)}`, window.location.origin).toString(),
+        new URL(`guild_dungeon_cube_army.php?instance_id=${encodeURIComponent(instanceId)}&node_id=${encodeURIComponent(nodeId)}`, window.location.origin).toString()
+      ];
+    }
+    return [];
+  }
+
+  function parseArmyNodeBoard(html, doc, node, baseUrl) {
+    const cards = parseScriptAssignmentJson(html, 'fightCards') || [];
+    const activeMatchMatch = html.match(/let\s+activeMatchNo\s*=\s*(\d+)/);
+    const activeMatchNo = activeMatchMatch ? Number(activeMatchMatch[1] || 0) : 0;
+    const items = (Array.isArray(cards) ? cards : [])
+      .filter((card) => String(card.status || '').toLowerCase() !== 'cleared')
+      .map((card) => ({
+        kind: 'army',
+        nodeId: String(node.id),
+        matchNo: Number(card.match_no || 0),
+        status: String(card.status || 'open').toLowerCase(),
+        title: `Fight #${Number(card.match_no || 0)}`,
+        subtitle: cleanText(`${card.banner_name || 'Army Encounter'}${card.banner_power ? ` | ${card.banner_power}` : ''}`),
+        image: card.banner_image || card.captains?.[0]?.image_src || '',
+        participants: Number(card.participant_count || 0),
+        totalDamage: Number(card.total_damage || 0),
+        totalKills: Number(card.total_kills || 0),
+        activeMatchNo,
+        captains: Array.isArray(card.captains) ? card.captains : [],
+        url: buildArmyBattleUrl(node, card, baseUrl)
+      }));
+    return { type: 'army', nodeId: String(node.id), items };
+  }
+
+  function buildArmyBattleUrl(node, card, baseUrl) {
+    const instanceId = getCubeInstanceId();
+    const url = new URL('guild_dungeon_cube_army_battle.php', window.location.origin);
+    if (instanceId) url.searchParams.set('instance_id', instanceId);
+    url.searchParams.set('node_id', String(node.id));
+    url.searchParams.set('match_no', String(card.match_no || 0));
+    if (card.battle_id) url.searchParams.set('battle_id', String(card.battle_id));
+    return url.toString();
+  }
+
+  function parsePvpNodeBoard(doc, node, baseUrl) {
+    const items = Array.from(doc.querySelectorAll('.match')).map((match) => {
+      const title = cleanText(match.querySelector('.matchTitle')?.textContent || 'PvP Match');
+      const badge = cleanText(match.querySelector('.badge')?.textContent || '').toLowerCase();
+      const metaText = cleanText(match.querySelector('.meta')?.textContent || '');
+      const matchNo = Number((metaText.match(/Match\s*#(\d+)/i) || [])[1] || 0);
+      const slotsMatch = metaText.match(/Slots\s*(\d+)\s*\/\s*(\d+)/i);
+      const filledSlots = Number(slotsMatch?.[1] || 0);
+      const totalSlots = Number(slotsMatch?.[2] || 0);
+      const note = cleanText(match.querySelector('.note')?.textContent || '');
+      const href = match.querySelector('a.btn[href*="pvp_style_battle.php"]')?.getAttribute('href') || '';
+      const url = href ? new URL(href, baseUrl).toString() : '';
+      const enemies = Array.from(match.querySelectorAll('.enemyUnit')).slice(0, 5).map((enemy) => ({
+        name: cleanText(enemy.querySelector('.name')?.textContent || ''),
+        image: enemy.querySelector('img')?.getAttribute('src') || ''
+      }));
+      const rewards = Array.from(match.querySelectorAll('.rewardItem')).map((reward) => ({
+        name: cleanText(reward.querySelector('.rewardName')?.textContent || ''),
+        qty: cleanText(reward.querySelector('.rewardQty')?.textContent || ''),
+        image: reward.querySelector('img')?.getAttribute('src') || ''
+      }));
+      const openSlots = Array.from(match.querySelectorAll('.slots .slot')).map((slot) => {
+        const text = cleanText(slot.textContent || '');
+        const slotNo = Number((text.match(/Slot\s*(\d+)/i) || [])[1] || 0);
+        const hasUser = !!slot.querySelector('img') || !!cleanText(slot.querySelector('.name')?.textContent || '');
+        return slotNo && !hasUser ? slotNo : 0;
+      }).filter(Boolean);
+      return {
+        kind: 'pvp',
+        nodeId: String(node.id),
+        matchNo,
+        status: badge || 'open',
+        title,
+        subtitle: note,
+        filledSlots,
+        totalSlots,
+        missingSlots: Math.max(0, totalSlots - filledSlots),
+        hasPartialOpenSlots: filledSlots > 0 && totalSlots > filledSlots,
+        openSlots,
+        enemies,
+        rewards,
+        url
+      };
+    }).filter((item) => item.status !== 'cleared' && item.status !== 'clear');
+
+    items.sort((a, b) => {
+      if (a.hasPartialOpenSlots !== b.hasPartialOpenSlots) return a.hasPartialOpenSlots ? -1 : 1;
+      if (a.filledSlots !== b.filledSlots) return b.filledSlots - a.filledSlots;
+      return a.matchNo - b.matchNo;
+    });
+    return { type: 'pvp', nodeId: String(node.id), items };
+  }
+
+  function parseScriptAssignmentJson(html, name) {
+    try {
+      const match = String(html || '').match(new RegExp(`(?:let|const|var)\\s+${name}\\s*=\\s*([\\s\\S]*?);\\s*(?:let|const|var|function)\\b`));
+      if (!match?.[1]) return null;
+      return JSON.parse(match[1]);
+    } catch (_error) {
+      return null;
+    }
+  }
+
   function renderCubeNodeLinks(node) {
     const links = [];
     const locationUrl = getCubeLocationUrl(node);
@@ -3942,7 +4212,7 @@
     return `<div class="tm-sbw-cube-links">${links.join('')}</div>`;
   }
 
-  function renderCubeBoard(board, groups, monstersByNodeId) {
+  function renderCubeBoard(board, groups, monstersByNodeId, nodeBoardsByNodeId = new Map()) {
     const allNodes = groups.flatMap((group) => group.nodes);
     const fetchedMonsters = Array.from(monstersByNodeId.values()).flat();
     const summary = board.querySelector('.tm-sbw-summary');
@@ -3954,15 +4224,22 @@
       ...groups.map((group) => summaryPill(`${group.title}: ${group.nodes.length}`))
     ].join('');
 
-    sections.innerHTML = groups.map((group) => renderCubeGroup(group, monstersByNodeId)).join('');
+    sections.innerHTML = groups.map((group) => renderCubeGroup(group, monstersByNodeId, nodeBoardsByNodeId)).join('');
     board.querySelector('.tm-sbw-sub').textContent = 'Standalone cube view with nodes grouped by combat type.';
   }
 
-  function renderCubeGroup(group, monstersByNodeId) {
+  function renderCubeGroup(group, monstersByNodeId, nodeBoardsByNodeId = new Map()) {
     const cards = group.nodes.map((node) => {
       const monsters = monstersByNodeId.get(String(node.id)) || [];
       if (monsters.length) {
         return monsters.map((monster) => renderCubeMonsterCard(monster, node)).join('');
+      }
+      const nodeBoard = nodeBoardsByNodeId.get(String(node.id));
+      if (nodeBoard?.items?.length) {
+        return nodeBoard.items.map((item) => item.kind === 'army' ? renderCubeArmyFightCard(item, node) : renderCubePvpMatchCard(item, node)).join('');
+      }
+      if (nodeBoard && !nodeBoard.items.length && ['army', 'pvp'].includes(String(node.type || '').toLowerCase())) {
+        return '';
       }
       return renderCubeNodeCard(node);
     }).join('');
@@ -4013,6 +4290,85 @@
     `;
   }
 
+  function renderCubeArmyFightCard(item, node) {
+    const imageUrl = item.image ? new URL(item.image, window.location.origin).toString() : '';
+    const captains = (item.captains || []).slice(0, 3).map((captain) => {
+      const hpMax = Math.max(1, Number(captain.squad_max_health || 1));
+      const hpCur = Math.max(0, Number(captain.squad_current_health || 0));
+      return `
+        <div class="tm-sbw-cube-mini-row">
+          ${captain.image_src ? `<img src="${escapeHtml(new URL(captain.image_src, window.location.origin).toString())}" alt="">` : ''}
+          <span>${escapeHtml(captain.display_name || 'Captain')}</span>
+          <b>${escapeHtml(formatDamage(hpCur))}/${escapeHtml(formatDamage(hpMax))}</b>
+        </div>
+      `;
+    }).join('');
+    const disabled = item.activeMatchNo > 0 && item.activeMatchNo !== item.matchNo;
+    return `
+      <article class="tm-sbw-monster-card tm-sbw-cube-card tm-sbw-cube-battle-card">
+        <div class="tm-sbw-monster-top">
+          ${imageUrl ? `<img class="tm-sbw-monster-img" src="${escapeHtml(imageUrl)}" alt="">` : ''}
+          <div class="tm-sbw-monster-main">
+            <div class="tm-sbw-monster-name">${escapeHtml(node.name || `Node ${node.id}`)} - ${escapeHtml(item.title)}</div>
+            <div class="tm-sbw-monster-meta">
+              <span class="tm-sbw-badge">${escapeHtml(getCubeNodeTypeLabel(node))}</span>
+              <span class="tm-sbw-badge">${escapeHtml(item.status === 'active' ? 'Live' : item.status === 'failed' ? 'Failed' : 'Open')}</span>
+            </div>
+            <div class="tm-sbw-stats">
+              <span>${escapeHtml(item.subtitle || 'Army fight')}</span>
+              <span>${escapeHtml(formatDamage(item.participants))} members</span>
+              <span>${escapeHtml(formatDamage(item.totalDamage))} dmg</span>
+              <span>${escapeHtml(formatDamage(item.totalKills))} kills</span>
+            </div>
+            <div class="tm-sbw-cube-mini-list">${captains}</div>
+          </div>
+        </div>
+        <div class="tm-sbw-monster-actions">
+          <button type="button" class="btn" data-node-id="${escapeHtml(String(node.id))}" data-enter-army-match="${escapeHtml(String(item.matchNo))}" ${disabled ? 'disabled' : ''}>${item.status === 'active' ? 'Enter Fight' : item.status === 'failed' ? 'Retry Fight' : 'Launch Fight'}</button>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderCubePvpMatchCard(item, node) {
+    const enemies = (item.enemies || []).slice(0, 5).map((enemy) => `
+      <div class="tm-sbw-cube-mini-row">
+        ${enemy.image ? `<img src="${escapeHtml(new URL(enemy.image, window.location.origin).toString())}" alt="">` : ''}
+        <span>${escapeHtml(enemy.name || 'Enemy')}</span>
+      </div>
+    `).join('');
+    const rewards = (item.rewards || []).slice(0, 3).map((reward) => `
+      <span class="tm-sbw-cube-field"><b>${escapeHtml(reward.qty || 'x?')}</b> ${escapeHtml(reward.name || 'Reward')}</span>
+    `).join('');
+    const slotButtons = (item.openSlots || []).slice(0, 5).map((slot) => `
+      <button type="button" class="tm-sbw-cube-link" data-node-id="${escapeHtml(String(node.id))}" data-match-no="${escapeHtml(String(item.matchNo))}" data-pvp-join-slot="${escapeHtml(String(slot))}">Join slot #${escapeHtml(String(slot))}</button>
+    `).join('');
+    return `
+      <article class="tm-sbw-monster-card tm-sbw-cube-card tm-sbw-cube-battle-card ${item.hasPartialOpenSlots ? 'priority' : ''}">
+        <div class="tm-sbw-monster-main">
+          <div class="tm-sbw-monster-name">${escapeHtml(node.name || `Node ${node.id}`)} - Match #${escapeHtml(String(item.matchNo || '?'))}</div>
+          <div class="tm-sbw-monster-meta">
+            <span class="tm-sbw-badge">${escapeHtml(getCubeNodeTypeLabel(node))}</span>
+            <span class="tm-sbw-badge">${escapeHtml(item.status || 'open')}</span>
+            <span class="tm-sbw-badge">${escapeHtml(String(item.filledSlots))}/${escapeHtml(String(item.totalSlots))} slots</span>
+            ${item.hasPartialOpenSlots ? '<span class="tm-sbw-badge alive">Joinable slots</span>' : ''}
+          </div>
+          <div class="tm-sbw-stats">
+            <span>${escapeHtml(item.title || 'PvP match')}</span>
+            ${item.subtitle ? `<span>${escapeHtml(item.subtitle)}</span>` : ''}
+            ${item.missingSlots ? `<span>${escapeHtml(String(item.missingSlots))} open slot(s)</span>` : ''}
+          </div>
+          <div class="tm-sbw-cube-mini-list">${enemies}</div>
+          ${rewards ? `<div class="tm-sbw-cube-links">${rewards}</div>` : ''}
+          ${slotButtons ? `<div class="tm-sbw-cube-links">${slotButtons}</div>` : ''}
+        </div>
+        <div class="tm-sbw-monster-actions">
+          ${item.url ? `<a class="btn tm-sbw-action" href="${escapeHtml(item.url)}">View Match</a>` : renderCubeEnterButton(node)}
+        </div>
+      </article>
+    `;
+  }
+
   function renderCubeNodeCard(node) {
     return `
       <article class="tm-sbw-monster-card tm-sbw-cube-card tm-sbw-cube-node-card" data-cube-node="${escapeHtml(String(node.id))}">
@@ -4050,15 +4406,14 @@
   }
 
   async function postCubeAction(action, payload) {
-    const fd = new FormData();
-    fd.append('action', String(action || ''));
-    Object.entries(payload || {}).forEach(([key, value]) => {
-      fd.append(key, String(value ?? ''));
-    });
+    const body = new URLSearchParams();
+    body.set('action', String(action || ''));
+    Object.entries(payload || {}).forEach(([key, value]) => body.set(key, String(value ?? '')));
 
     const response = await fetch('guild_dungeon_cube_action.php', {
       method: 'POST',
-      body: fd,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: body.toString(),
       credentials: 'same-origin'
     });
 
@@ -4075,6 +4430,42 @@
     }
     if (data.error) {
       throw new Error(cleanText(data.error));
+    }
+    return data;
+  }
+
+  async function postCubeArmyAction(action, payload) {
+    const body = new URLSearchParams();
+    body.set('action', String(action || ''));
+    Object.entries(payload || {}).forEach(([key, value]) => body.set(key, String(value ?? '')));
+
+    const response = await fetch('guild_dungeon_cube_army_action.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: body.toString(),
+      credentials: 'same-origin'
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data || data.ok === false) {
+      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : `Army action failed (${response.status})`);
+    }
+    return data;
+  }
+
+  async function postPvpStyleAction(action, payload) {
+    const body = new URLSearchParams();
+    body.set('action', String(action || ''));
+    Object.entries(payload || {}).forEach(([key, value]) => body.set(key, String(value ?? '')));
+
+    const response = await fetch('pvp_style_action.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: body.toString(),
+      credentials: 'same-origin'
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data || data.ok === false) {
+      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : `PvP action failed (${response.status})`);
     }
     return data;
   }
@@ -5939,6 +6330,44 @@
       }
       .tm-sbw-cube-node-card .tm-sbw-stats {
         min-height: 24px;
+      }
+      .tm-sbw-cube-battle-card.priority {
+        border-color: rgba(34,197,94,.55) !important;
+        box-shadow: 0 0 0 2px rgba(34,197,94,.14) inset, 0 16px 32px rgba(0,0,0,.65) !important;
+      }
+      .tm-sbw-cube-mini-list {
+        display: grid;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .tm-sbw-cube-mini-row {
+        display: grid;
+        grid-template-columns: 28px minmax(0,1fr) auto;
+        gap: 8px;
+        align-items: center;
+        min-height: 28px;
+        padding: 5px 7px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.07);
+        color: #cbd5e1;
+        font-size: 12px;
+      }
+      .tm-sbw-cube-mini-row img {
+        width: 28px;
+        height: 28px;
+        object-fit: cover;
+        border-radius: 8px;
+      }
+      .tm-sbw-cube-mini-row span {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .tm-sbw-cube-mini-row b {
+        color: #FFD369;
+        font-size: 11px;
       }
       .tm-sbw-modal {
         position: fixed;
