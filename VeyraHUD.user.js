@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.19
-// @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Shadowbridge monster board, Cube intro skipper, Solo PvP bot.
+// @version      0.3.20
+// @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
 // @match        *://www.demonicscans.org/*
@@ -31,11 +31,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.17',
+      version: '0.3.20',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.17'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.17');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.20'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.20');
   } catch (e) {
     // ignore
   }
@@ -45,10 +45,19 @@
 (function(){
   'use strict';
 
-  const VERSION = '0.3.17';
+  const VERSION = '0.3.20';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
   const CHANGELOG = {
+    '0.3.20': {
+      date: '2026-06-02',
+      changes: [
+        'Monster Board: renamed the Shadowbridge board to Monster Board so it reads correctly across dungeon pages.',
+        'Cube: added a standalone Monster Board view with sections for Merchant, PvE, Shadow Army, PvP, and Boss nodes.',
+        'Cube Monster Board: node cards now expose linked node/location actions instead of leaving the IDs as plain text.',
+        'Cube: bundled the intro skipper into the AIO so the intro stays dismissed after you have already seen it.'
+      ]
+    },
     '0.3.17': {
       date: '2026-04-13',
       changes: [
@@ -3237,6 +3246,7 @@
   'use strict';
 
   const DUNGEON_NAME = 'Shadowbridge Warrens';
+  const BOARD_TITLE = 'Monster Board';
   const PANEL_ID = 'tm-shadowbridge-monster-board';
   const STYLE_ID = 'tm-shadowbridge-monster-board-style';
   const QUOTA_STORAGE_KEY = 'tm_shadowbridge_daily_rule_usage_v2';
@@ -3272,6 +3282,8 @@
 
   let started = false;
   let mo = null;
+  let cubeStateOverride = null;
+  let cubeFaceDataOverride = null;
 
   function startOnce() {
     if (started) return;
@@ -3328,6 +3340,8 @@
   }
 
   function isMainDungeonPage() {
+    if (isCubePage()) return true;
+
     const title = (document.title || '').toLowerCase();
     const hasTitle = title.includes(DUNGEON_NAME.toLowerCase());
 
@@ -3344,6 +3358,11 @@
   }
 
   async function init() {
+    if (isCubePage()) {
+      await initCubeBoard();
+      return;
+    }
+
     const mapPanel = document.querySelector('.mapframe')?.closest('.panel');
     const mapWrap = document.querySelector('.mapwrap');
     const pins = Array.from(document.querySelectorAll('a.pin[href*="guild_dungeon_location.php"]'))
@@ -3369,6 +3388,112 @@
     );
 
     renderBoard(board, mapWrap, locations);
+  }
+
+  function isCubePage() {
+    const path = String(window.location.pathname || '').toLowerCase();
+    return path.includes('guild_dungeon_cube.php') && (!!document.getElementById('nodeTableView') || !!getCubeState()?.nodes);
+  }
+
+  async function initCubeBoard() {
+    const tableView = document.getElementById('nodeTableView');
+    const stage = document.querySelector('.stage') || tableView?.parentElement;
+    if (!tableView || !stage) {
+      throw new Error('Could not find the cube view container.');
+    }
+
+    let board = document.getElementById(PANEL_ID);
+    if (!board) {
+      board = createCubeBoardShell();
+      tableView.insertAdjacentElement('afterend', board);
+    } else if (board.parentElement !== stage) {
+      tableView.insertAdjacentElement('afterend', board);
+    }
+
+    const render = () => loadAndRenderCubeBoard(board).catch((error) => {
+      console.error('[TM Shadowbridge]', error);
+      board.innerHTML = `<div class="h">${BOARD_TITLE}</div><div class="tm-sbw-error">${escapeHtml(error.message || error)}</div>`;
+    });
+
+    await waitForCubeNodes();
+    await render();
+    setupCubeBoardView(stage, board);
+  }
+
+  async function waitForCubeNodes() {
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      if (getCubeNodes().length > 0) return true;
+      await delay(200);
+    }
+    return false;
+  }
+
+  function setupCubeBoardView(stage, board) {
+    const button = document.getElementById('viewModeBtn');
+    const storageKey = 'tm_cube_view_mode_v1';
+    const modes = ['cube', 'table', 'board'];
+    const labelForMode = (mode) => {
+      if (mode === 'table') return 'Monster Board';
+      if (mode === 'board') return 'Cube View';
+      return 'Table View';
+    };
+    const normalizeMode = (mode) => modes.includes(mode) ? mode : (stage.classList.contains('table-mode') ? 'table' : 'cube');
+    let currentMode = normalizeMode(sessionStorage.getItem(storageKey) || '');
+
+    const applyMode = (mode) => {
+      currentMode = normalizeMode(mode);
+      try { sessionStorage.setItem(storageKey, currentMode); } catch {}
+      stage.classList.toggle('table-mode', currentMode === 'table');
+      stage.classList.toggle('tm-sbw-board-mode', currentMode === 'board');
+      if (board) board.setAttribute('aria-hidden', currentMode === 'board' ? 'false' : 'true');
+      if (button) {
+        button.disabled = false;
+        button.textContent = labelForMode(currentMode);
+      }
+    };
+
+    applyMode(currentMode);
+
+    if (button && !button.dataset.tmSbwBoardToggle) {
+      button.dataset.tmSbwBoardToggle = '1';
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const nextMode = currentMode === 'cube' ? 'table' : currentMode === 'table' ? 'board' : 'cube';
+        applyMode(nextMode);
+      }, true);
+    }
+
+    board.addEventListener('click', async (event) => {
+      const enterButton = event.target.closest('[data-enter-node]');
+      if (!enterButton) return;
+      event.preventDefault();
+      const node = getCubeNodes().find((item) => String(item.id) === String(enterButton.dataset.enterNode));
+      if (!node || !canEnterCubeNode(node)) return;
+      const originalText = enterButton.textContent;
+      enterButton.disabled = true;
+      enterButton.textContent = 'Entering...';
+      try {
+        const data = await postCubeAction('enter_node', { node_id: node.id, face_key: node.face_key });
+        if (data.redirect) {
+          window.location.href = data.redirect;
+          return;
+        }
+        if (data.message) {
+          showCubeBoardMessage(board, data.message);
+        }
+        if (data.state) {
+          cubeStateOverride = data.state;
+          try { window.STATE = data.state; } catch {}
+          await loadAndRenderCubeBoard(board);
+        }
+      } catch (error) {
+        showCubeBoardMessage(board, error.message || 'Action failed.');
+      } finally {
+        enterButton.disabled = false;
+        enterButton.textContent = originalText;
+      }
+    });
   }
 
   async function fetchLocation(url, fallbackName) {
@@ -3432,7 +3557,7 @@
     board.innerHTML = `
       <div class="tm-sbw-head">
         <div>
-          <div class="h">All Shadowbridge Monsters</div>
+          <div class="h">${BOARD_TITLE}</div>
           <div class="tm-sbw-sub">Loading monsters from ${locationCount} map locations...</div>
         </div>
         <button type="button" class="btn tm-sbw-refresh">Refresh</button>
@@ -3441,7 +3566,7 @@
       <div class="tm-sbw-qol">
         <div class="qol-top">
           <div class="qol-filters">
-            <span class="qol-title">🗺️ D1 Multi Targets</span>
+            <span class="qol-title">Monster Board Targets</span>
 
             <div class="select-wrap">
               <select id="fNameSel" class="modern-select" data-role="name-filter">
@@ -3556,6 +3681,412 @@
     });
 
     return board;
+  }
+
+  function createCubeBoardShell() {
+    const board = document.createElement('section');
+    board.id = PANEL_ID;
+    board.className = 'panel tm-sbw-board tm-sbw-cube-board';
+    board.innerHTML = `
+      <div class="tm-sbw-head">
+        <div>
+          <div class="h">${BOARD_TITLE}</div>
+          <div class="tm-sbw-sub">Loading cube nodes...</div>
+        </div>
+        <button type="button" class="btn tm-sbw-refresh">Refresh</button>
+      </div>
+      <div class="tm-sbw-summary"></div>
+      <div class="tm-sbw-run-line" data-role="cube-board-message"></div>
+      <div class="tm-sbw-cube-sections"></div>
+    `;
+
+    board.querySelector('.tm-sbw-refresh')?.addEventListener('click', () => {
+      loadAndRenderCubeBoard(board).catch((error) => {
+        console.error('[TM Shadowbridge]', error);
+        const sections = board.querySelector('.tm-sbw-cube-sections');
+        if (sections) sections.innerHTML = `<div class="tm-sbw-error">${escapeHtml(error.message || error)}</div>`;
+      });
+    });
+
+    return board;
+  }
+
+  async function loadAndRenderCubeBoard(board) {
+    const nodes = getCubeNodes();
+    if (!nodes.length) {
+      renderCubeBoardLoading(board);
+      window.setTimeout(() => {
+        if (getCubeNodes().length > 0) {
+          loadAndRenderCubeBoard(board).catch((error) => {
+            console.error('[TM Shadowbridge]', error);
+          });
+        }
+      }, 350);
+      return;
+    }
+    const instanceId = getCubeInstanceId();
+    const grouped = createCubeGroups(nodes);
+    const fetchTargets = nodes.filter((node) => {
+      const group = getCubeNodeGroup(node);
+      return node.linked_location_id && (group === 'pve' || group === 'boss');
+    });
+
+    const monstersByNodeId = new Map();
+    await Promise.all(fetchTargets.map(async (node) => {
+      try {
+        const url = new URL('guild_dungeon_location.php', window.location.origin);
+        if (instanceId) url.searchParams.set('instance_id', instanceId);
+        url.searchParams.set('location_id', String(node.linked_location_id));
+        const location = await fetchLocation(url, node.name || `Node ${node.id}`);
+        monstersByNodeId.set(String(node.id), location.monsters.map((monster, index) => ({
+          ...monster,
+          id: `cube-${node.id}-${index}`,
+          nodeName: node.name || `Node ${node.id}`,
+          nodeTypeLabel: getCubeNodeTypeLabel(node),
+          roomUrl: url.toString()
+        })));
+      } catch (error) {
+        monstersByNodeId.set(String(node.id), []);
+        console.error('[TM Shadowbridge]', error);
+      }
+    }));
+
+    renderCubeBoard(board, grouped, monstersByNodeId);
+  }
+
+  function renderCubeBoardLoading(board) {
+    const summary = board.querySelector('.tm-sbw-summary');
+    const sections = board.querySelector('.tm-sbw-cube-sections');
+    if (summary) summary.innerHTML = [summaryPill('Waiting for cube nodes...')].join('');
+    if (sections) sections.innerHTML = '<div class="tm-sbw-empty">Loading cube node data...</div>';
+    const sub = board.querySelector('.tm-sbw-sub');
+    if (sub) sub.textContent = 'Waiting for the cube page to finish loading node data.';
+  }
+
+  function getCubeNodes() {
+    const stateNodes = getCubeState()?.nodes;
+    if (Array.isArray(stateNodes)) return stateNodes;
+    return [];
+  }
+
+  function getCubeInstanceId() {
+    const url = new URL(window.location.href);
+    return url.searchParams.get('instance_id') || url.searchParams.get('id') || getCubeState()?.instance_id || '';
+  }
+
+  function getCubeState() {
+    if (cubeStateOverride?.nodes) return cubeStateOverride;
+    if (window.STATE?.nodes) return window.STATE;
+    try {
+      if (typeof STATE !== 'undefined' && STATE?.nodes) return STATE;
+    } catch {}
+    const parsed = parseInlineCubeJson('STATE', 'TYPE_LABELS');
+    if (parsed?.nodes) {
+      cubeStateOverride = parsed;
+      return parsed;
+    }
+    return null;
+  }
+
+  function getCubeFaceData() {
+    if (cubeFaceDataOverride) return cubeFaceDataOverride;
+    if (window.FACE_DATA) return window.FACE_DATA;
+    try {
+      if (typeof FACE_DATA !== 'undefined' && FACE_DATA) return FACE_DATA;
+    } catch {}
+    const parsed = parseInlineCubeJson('FACE_DATA', 'STATE');
+    if (parsed) {
+      cubeFaceDataOverride = parsed;
+      return parsed;
+    }
+    return {};
+  }
+
+  function parseInlineCubeJson(varName, nextVarName) {
+    try {
+      const pattern = new RegExp(`const\\s+${varName}\\s*=\\s*([\\s\\S]*?);\\s*const\\s+${nextVarName}\\b`);
+      for (const script of Array.from(document.scripts || [])) {
+        const text = script.textContent || '';
+        if (!text.includes(`const ${varName}`)) continue;
+        const match = text.match(pattern);
+        if (!match?.[1]) continue;
+        return JSON.parse(match[1]);
+      }
+    } catch (_error) {
+      // ignore parse failures and keep trying other sources
+    }
+    return null;
+  }
+
+  function createCubeGroups(nodes) {
+    const groups = [
+      { key: 'merchant', title: 'Merchant (non combat)', nodes: [] },
+      { key: 'pve', title: 'PvE', nodes: [] },
+      { key: 'army', title: 'Shadow Army', nodes: [] },
+      { key: 'pvp', title: 'PvP', nodes: [] },
+      { key: 'boss', title: 'Boss', nodes: [] }
+    ];
+    const byKey = new Map(groups.map((group) => [group.key, group]));
+    nodes.forEach((node) => {
+      const key = getCubeNodeGroup(node);
+      (byKey.get(key) || byKey.get('merchant')).nodes.push(node);
+    });
+    return groups;
+  }
+
+  function getCubeNodeGroup(node) {
+    const type = String(node?.type || '').toLowerCase();
+    const unlockRule = String(node?.unlock_rule || '').toLowerCase();
+    const name = String(node?.name || '').toLowerCase();
+    const isBoss = type === 'boss' || node?.is_boss_gate || unlockRule.includes('boss') || unlockRule.includes('all_pvp_other') || unlockRule.includes('all_army_other') || name.includes('boss');
+    if (isBoss) return 'boss';
+    if (type === 'pve') return 'pve';
+    if (type === 'army') return 'army';
+    if (type === 'pvp') return 'pvp';
+    return 'merchant';
+  }
+
+  function getCubeNodeTypeLabel(node) {
+    const type = String(node?.type || '').toLowerCase();
+    if (type === 'army') return 'Shadow Army';
+    if (type === 'pve') return 'PvE';
+    if (type === 'pvp') return 'PvP';
+    if (type === 'boss') return 'Boss';
+    if (type === 'shop') return 'Shop';
+    if (type === 'forge') return 'Forge';
+    if (type === 'arrival') return 'Arrival';
+    return type ? type.replace(/\b\w/g, (letter) => letter.toUpperCase()) : 'Node';
+  }
+
+  function getCubeFaceLabel(node) {
+    const faceKey = String(node?.face_key || '');
+    const face = getCubeFaceData()?.[faceKey];
+    if (face?.title) return cleanText(face.title);
+    const stateFace = (getCubeState()?.faces || []).find((item) => String(item.FACE_KEY || '') === faceKey);
+    return cleanText(stateFace?.DISPLAY_NAME || faceKey || 'Unknown face');
+  }
+
+  function getCubeNodeProgressText(node) {
+    if (!node) return '';
+    const type = String(node.type || '').toLowerCase();
+    const meta = node.state_meta && typeof node.state_meta === 'object' && !Array.isArray(node.state_meta) ? node.state_meta : {};
+
+    if ((type === 'pve' || type === 'boss') && Number(node.monsters_total || 0) > 0) {
+      return `Enemies: ${Number(node.monsters_left || 0)} / ${Number(node.monsters_total || 0)} left`;
+    }
+    if (type === 'army') {
+      if (String(node.unlock_rule || '') === 'all_army_other') {
+        return 'Army boss trial';
+      }
+      const cleared = Number(node.army_matches_cleared || meta.army_fights_cleared || 0);
+      const total = Number(node.army_matches_total || meta.army_fights_total || 0);
+      const active = Number(node.army_matches_active || meta.army_fights_active || 0);
+      const open = Number(meta.army_fights_open || 0);
+      if (total > 0) return `Army fights: ${cleared} / ${total} cleared${active || open ? `, ${active || open} active/open` : ''}`;
+      return 'Shared captain battle';
+    }
+    if (type === 'pvp') {
+      if (String(node.unlock_rule || '') === 'all_pvp_other') {
+        return 'PvP boss trial';
+      }
+      const cleared = Number(node.pvp_matches_cleared || meta.pvp_rooms_cleared || 0);
+      const total = Number(node.pvp_matches_total || meta.pvp_rooms_total || 0);
+      const open = Number(meta.pvp_rooms_open || 0);
+      if (total > 0) return `PvP matches: ${cleared} / ${total} cleared${open ? `, ${open} open` : ''}`;
+      return 'PvP-style chamber';
+    }
+    if (type === 'shop') return 'Shop room';
+    if (type === 'forge') return 'Forge room';
+    if (type === 'arrival') return 'Entry platform';
+    return cleanText(node.hint || '');
+  }
+
+  function renderCubeNodeFields(node) {
+    const fields = [
+      ['Face', getCubeFaceLabel(node)],
+      ['Status', cleanText(node.status || 'available')],
+      ['Progress', getCubeNodeProgressText(node)]
+    ].filter(([, value]) => cleanText(value));
+
+    return fields.map(([label, value]) => `
+      <span class="tm-sbw-cube-field"><b>${escapeHtml(label)}</b> ${escapeHtml(value)}</span>
+    `).join('');
+  }
+
+  function getCubeLocationUrl(node) {
+    const locationId = Number(node?.linked_location_id || 0);
+    if (!locationId) return '';
+    const url = new URL('guild_dungeon_location.php', window.location.origin);
+    const instanceId = getCubeInstanceId();
+    if (instanceId) url.searchParams.set('instance_id', instanceId);
+    url.searchParams.set('location_id', String(locationId));
+    return url.toString();
+  }
+
+  function renderCubeNodeLinks(node) {
+    const links = [];
+    const locationUrl = getCubeLocationUrl(node);
+    if (locationUrl) {
+      links.push(`<a class="tm-sbw-cube-link" href="${escapeHtml(locationUrl)}">Location ${escapeHtml(String(node.linked_location_id))}</a>`);
+    }
+    if (Number(node?.pvp_encounter_id || 0)) {
+      links.push(`<button type="button" class="tm-sbw-cube-link" data-enter-node="${escapeHtml(String(node.id))}">PvP ${escapeHtml(String(node.pvp_encounter_id))}</button>`);
+    }
+    if (Number(node?.army_encounter_id || 0)) {
+      links.push(`<button type="button" class="tm-sbw-cube-link" data-enter-node="${escapeHtml(String(node.id))}">Army ${escapeHtml(String(node.army_encounter_id))}</button>`);
+    }
+    if (Number(node?.shop_id || 0)) {
+      links.push(`<button type="button" class="tm-sbw-cube-link" data-enter-node="${escapeHtml(String(node.id))}">Shop ${escapeHtml(String(node.shop_id))}</button>`);
+    }
+    if (!links.length) return '';
+    return `<div class="tm-sbw-cube-links">${links.join('')}</div>`;
+  }
+
+  function renderCubeBoard(board, groups, monstersByNodeId) {
+    const allNodes = groups.flatMap((group) => group.nodes);
+    const fetchedMonsters = Array.from(monstersByNodeId.values()).flat();
+    const summary = board.querySelector('.tm-sbw-summary');
+    const sections = board.querySelector('.tm-sbw-cube-sections');
+
+    summary.innerHTML = [
+      summaryPill(`${allNodes.length} cube nodes`),
+      summaryPill(`${fetchedMonsters.length} linked monsters`, 'alive'),
+      ...groups.map((group) => summaryPill(`${group.title}: ${group.nodes.length}`))
+    ].join('');
+
+    sections.innerHTML = groups.map((group) => renderCubeGroup(group, monstersByNodeId)).join('');
+    board.querySelector('.tm-sbw-sub').textContent = 'Standalone cube view with nodes grouped by combat type.';
+  }
+
+  function renderCubeGroup(group, monstersByNodeId) {
+    const cards = group.nodes.map((node) => {
+      const monsters = monstersByNodeId.get(String(node.id)) || [];
+      if (monsters.length) {
+        return monsters.map((monster) => renderCubeMonsterCard(monster, node)).join('');
+      }
+      return renderCubeNodeCard(node);
+    }).join('');
+
+    return `
+      <section class="tm-sbw-cube-section" data-section="${escapeHtml(group.key)}">
+        <div class="tm-sbw-cube-section-head">
+          <h3>${escapeHtml(group.title)}</h3>
+          <span>${escapeHtml(String(group.nodes.length))} nodes</span>
+        </div>
+        <div class="tm-sbw-cube-grid">
+          ${cards || '<div class="tm-sbw-empty">No nodes in this section.</div>'}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderCubeMonsterCard(monster, node) {
+    const imageUrl = monster.image ? new URL(monster.image, window.location.origin).toString() : '';
+    const statusClass = monster.dead ? 'dead' : 'alive';
+    return `
+      <article class="tm-sbw-monster-card tm-sbw-cube-card ${statusClass}">
+        <div class="tm-sbw-monster-top">
+          ${imageUrl ? `<img class="tm-sbw-monster-img" src="${escapeHtml(imageUrl)}" alt="">` : ''}
+          <div class="tm-sbw-monster-main">
+            <div class="tm-sbw-monster-name">${escapeHtml(monster.name)}</div>
+            <div class="tm-sbw-monster-meta">
+              <span class="tm-sbw-badge ${statusClass}">${monster.dead ? 'Dead' : 'Alive'}</span>
+              <span class="tm-sbw-badge">${escapeHtml(node.name || `Node ${node.id}`)}</span>
+              <span class="tm-sbw-badge">${escapeHtml(getCubeNodeTypeLabel(node))}</span>
+            </div>
+            <div class="tm-sbw-stats">
+              <span>${escapeHtml(getCubeFaceLabel(node))}</span>
+              <span>${escapeHtml(getCubeNodeProgressText(node))}</span>
+              <span>HP ${escapeHtml(monster.hp || '?')}</span>
+              <span>ATK ${escapeHtml(monster.atk || '?')}</span>
+              <span>DEF ${escapeHtml(monster.def || '?')}</span>
+              <span>EXP/dmg ${escapeHtml(monster.expPerDamage || '?')}</span>
+            </div>
+            ${renderCubeNodeLinks(node)}
+          </div>
+        </div>
+        <div class="tm-sbw-monster-actions">
+          ${monster.actionUrl ? `<a class="btn tm-sbw-action" href="${escapeHtml(monster.actionUrl)}">${escapeHtml(monster.actionLabel || 'Fight')}</a>` : ''}
+          ${renderCubeEnterButton(node)}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderCubeNodeCard(node) {
+    return `
+      <article class="tm-sbw-monster-card tm-sbw-cube-card tm-sbw-cube-node-card" data-cube-node="${escapeHtml(String(node.id))}">
+        <div class="tm-sbw-monster-main">
+          <button type="button" class="tm-sbw-cube-node-title" data-enter-node="${escapeHtml(String(node.id))}">${escapeHtml(node.name || `Node ${node.id}`)}</button>
+          <div class="tm-sbw-monster-meta">
+            <span class="tm-sbw-badge">${escapeHtml(getCubeNodeTypeLabel(node))}</span>
+            <span class="tm-sbw-badge">${escapeHtml(cleanText(node.status || 'available'))}</span>
+          </div>
+          <div class="tm-sbw-stats">
+            ${renderCubeNodeFields(node)}
+          </div>
+          ${renderCubeNodeLinks(node)}
+          ${node.description ? `<div class="tm-sbw-cube-desc">${escapeHtml(node.description)}</div>` : ''}
+        </div>
+        <div class="tm-sbw-monster-actions">
+          ${renderCubeEnterButton(node)}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderCubeEnterButton(node) {
+    if (!canEnterCubeNode(node)) {
+      return '<button type="button" class="btn" disabled>Locked</button>';
+    }
+    const label = cleanText(node?.enter_label || (node?.type === 'shop' ? 'Visit' : 'Enter'));
+    return `<button type="button" class="btn tableActionBtn" data-enter-node="${escapeHtml(String(node.id))}">${escapeHtml(label)}</button>`;
+  }
+
+  function canEnterCubeNode(node) {
+    if (!node) return false;
+    const status = String(node.status || '').toLowerCase();
+    return status !== 'hidden' && status !== 'locked';
+  }
+
+  async function postCubeAction(action, payload) {
+    const fd = new FormData();
+    fd.append('action', String(action || ''));
+    Object.entries(payload || {}).forEach(([key, value]) => {
+      fd.append(key, String(value ?? ''));
+    });
+
+    const response = await fetch('guild_dungeon_cube_action.php', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin'
+    });
+
+    const raw = await response.text();
+    let data = null;
+    try {
+      data = JSON.parse(raw);
+    } catch (_error) {
+      data = null;
+    }
+
+    if (!response.ok || !data) {
+      throw new Error(`Cube action failed (${response.status})`);
+    }
+    if (data.error) {
+      throw new Error(cleanText(data.error));
+    }
+    return data;
+  }
+
+  function showCubeBoardMessage(board, message) {
+    const line = board.querySelector('[data-role="cube-board-message"]');
+    if (!line) return;
+    line.textContent = cleanText(message);
+    window.clearTimeout(showCubeBoardMessage._timer);
+    showCubeBoardMessage._timer = window.setTimeout(() => {
+      line.textContent = '';
+    }, 3500);
   }
 
   function renderBoard(board, mapWrap, locations) {
@@ -4840,7 +5371,7 @@
       }
     }
 
-    board.innerHTML = `<div class="h">All Shadowbridge Monsters</div><div class="tm-sbw-error">${escapeHtml(message)}</div>`;
+    board.innerHTML = `<div class="h">${BOARD_TITLE}</div><div class="tm-sbw-error">${escapeHtml(message)}</div>`;
   }
 
   function injectStyles() {
@@ -5284,6 +5815,130 @@
       .tm-sbw-error {
         margin-top: 12px;
         color: #fca5a5;
+      }
+      .tm-sbw-cube-board {
+        margin-top: 18px;
+      }
+      .stage > .tm-sbw-cube-board {
+        display: none;
+        width: min(76vw, 980px);
+        max-width: 100%;
+        max-height: min(68vh, 760px);
+        margin: 0 auto;
+        overflow: auto;
+        box-sizing: border-box;
+      }
+      .stage.tm-sbw-board-mode {
+        min-height: 0 !important;
+      }
+      .stage.tm-sbw-board-mode .scene,
+      .stage.tm-sbw-board-mode .nodeTableView {
+        display: none !important;
+      }
+      .stage.tm-sbw-board-mode > .tm-sbw-cube-board {
+        display: block;
+      }
+      .tm-sbw-cube-sections {
+        display: grid;
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .tm-sbw-cube-section {
+        display: grid;
+        gap: 10px;
+        padding: 12px;
+        border-radius: 12px;
+        background: #171923;
+        border: 1px solid #232437;
+      }
+      .tm-sbw-cube-section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .tm-sbw-cube-section-head h3 {
+        margin: 0;
+        color: #FFD369;
+        font-size: 15px;
+        font-weight: 900;
+      }
+      .tm-sbw-cube-section-head span,
+      .tm-sbw-empty {
+        color: #94a3b8;
+        font-size: 12px;
+      }
+      .tm-sbw-cube-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 10px;
+      }
+      .tm-sbw-cube-card {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 132px;
+      }
+      .tm-sbw-cube-card.dead {
+        opacity: 0.8;
+      }
+      .tm-sbw-cube-field {
+        display: inline-flex;
+        gap: 4px;
+        align-items: baseline;
+        padding: 4px 7px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.08);
+      }
+      .tm-sbw-cube-field b {
+        color: #FFD369;
+      }
+      .tm-sbw-cube-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .tm-sbw-cube-link,
+      .tm-sbw-cube-node-title {
+        appearance: none;
+        border: 1px solid rgba(160,210,255,.22);
+        background: rgba(59,111,155,.24);
+        color: #dff0ff;
+        border-radius: 999px;
+        cursor: pointer;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 1.2;
+        padding: 5px 8px;
+        text-decoration: none;
+      }
+      .tm-sbw-cube-link:hover,
+      .tm-sbw-cube-node-title:hover {
+        filter: brightness(1.1);
+      }
+      .tm-sbw-cube-node-title {
+        display: inline-flex;
+        max-width: 100%;
+        border-radius: 10px;
+        color: #e6e9ff;
+        font-size: 14px;
+        font-weight: 900;
+        text-align: left;
+        padding: 4px 7px;
+        margin: -4px 0 2px;
+      }
+      .tm-sbw-cube-desc {
+        margin-top: 10px;
+        color: #aeb6d8;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .tm-sbw-cube-node-card .tm-sbw-stats {
+        min-height: 24px;
       }
       .tm-sbw-modal {
         position: fixed;
