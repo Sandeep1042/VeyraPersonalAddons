@@ -1316,6 +1316,7 @@
   const SELECTOR_CARD = '.monster-card[data-dead="1"]';
   const SELECTOR_ELIGIBLE_CARD = '.monster-card[data-dead="1"][data-eligible="1"]';
   const SELECTOR_ANY_DEAD_CARD = '.monster-card[data-dead="1"]';
+  const LOOT_CONCURRENCY = 20;
   const FILTER_KEY = 'tm_graveyard_filter_mob_type_v1';
   const ALL_TYPES_CACHE_PREFIX = 'tm_graveyard_all_dead_index_v1:';
   const ALL_TYPES_TTL_MS = 5 * 60 * 1000;
@@ -1337,6 +1338,35 @@
 
   function hasGraveyard() {
     return !!document.querySelector(SELECTOR_CARD);
+  }
+
+  function isDeadLootViewActive() {
+    const candidates = Array.from(document.querySelectorAll('button, a, input[type="button"], input[type="submit"]'));
+    for (const el of candidates) {
+      if (!(el instanceof HTMLElement)) continue;
+      const cs = window.getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || el.offsetParent === null) continue;
+      const text = normName(el.value || el.textContent || '');
+      if (/\bShow Alive monsters\b/i.test(text)) return true;
+      if (/\bShow unclaimed kills\b/i.test(text)) return false;
+    }
+    return false;
+  }
+
+  function hasAliveWaveMonsters() {
+    if (isDeadLootViewActive()) return false;
+    return Array.from(document.querySelectorAll('.monster-card[data-monster-id]:not([data-dead="1"])')).some((card) => {
+      if (!(card instanceof HTMLElement)) return false;
+      const cs = window.getComputedStyle(card);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+      return /\bHP\b/i.test(card.textContent || '');
+    });
+  }
+
+  function hideNativeLootLine() {
+    for (const el of Array.from(document.querySelectorAll('.bl-lootline'))) {
+      if (el instanceof HTMLElement) el.style.display = 'none';
+    }
   }
 
   function getEligibleDeadCards() {
@@ -1728,6 +1758,20 @@
     applyButtonThemeFromReference(wrap);
   }
 
+  function syncWaveSizeControls() {
+    ensureWaveSizeControls();
+    const controls = document.getElementById('tmWaveSizeControls');
+    if (controls) controls.style.display = hasAliveWaveMonsters() ? '' : 'none';
+  }
+
+  function syncNativeWaveQolPanel() {
+    const panel = document.getElementById('waveQolPanel');
+    if (!panel) return;
+    const hide = isDeadLootViewActive();
+    panel.classList.toggle('tm-waveqol-hidden', hide);
+    if (!hide && panel.style.display === 'none') panel.style.display = '';
+  }
+
   function findReferenceMultiTargetButton() {
     const selectors = [
       '#waveQolPanel .btnQuickJoinAttack:not([disabled])',
@@ -2068,6 +2112,10 @@
       #tmWaveSizeControls .btn:hover{ filter: brightness(1.06) !important; transform: translateY(-1px) !important; }
       #tmWaveSizeControls .btn:active{ filter: brightness(0.98) !important; transform: translateY(0) !important; }
       #tmWaveSizeControls .btn:disabled{ opacity:.6 !important; cursor:not-allowed !important; transform:none !important; }
+
+      #waveQolPanel.tm-waveqol-hidden{
+        display:none !important;
+      }
 
       /* Make our selects readable even during event themes */
       #tmLootControls select{
@@ -2796,37 +2844,45 @@
 
     let ok = 0;
     let fail = 0;
+    let done = 0;
     let firstFail = '';
     let totalExp = 0;
     let totalGold = 0;
     const allItems = [];
     const allNotes = [];
 
-    for (let i = 0; i < targetIds.length; i++) {
-      setStatus(`Looting ${i + 1}/${targetIds.length}... (success: ${ok}, fail: ${fail})`);
-      try {
-        const r = await lootOne(targetIds[i]);
-        if (r.ok) {
-          ok++;
-          totalExp += Number(r.exp || 0) || 0;
-          totalGold += Number(r.gold || 0) || 0;
-          if (Array.isArray(r.items) && r.items.length) allItems.push(...r.items);
-          else allNotes.push(r.message || 'Looted (no items)');
-          const el = document.querySelector(`.monster-card[data-monster-id="${targetIds[i]}"]`);
-          if (el) el.setAttribute('data-eligible', '0');
-          const cb = document.querySelector(`input.tm-loot-select[data-monster-id="${targetIds[i]}"]`);
-          if (cb) cb.checked = false;
-        } else {
+    setStatus(`Looting ${targetIds.length} selected dead monsters... (${Math.min(LOOT_CONCURRENCY, targetIds.length)} at a time)`);
+
+    try {
+      await runWithConcurrency(targetIds, LOOT_CONCURRENCY, async (targetId) => {
+        try {
+          const r = await lootOne(targetId);
+          if (r.ok) {
+            ok++;
+            totalExp += Number(r.exp || 0) || 0;
+            totalGold += Number(r.gold || 0) || 0;
+            if (Array.isArray(r.items) && r.items.length) allItems.push(...r.items);
+            else allNotes.push(r.message || 'Looted (no items)');
+            const el = document.querySelector(`.monster-card[data-monster-id="${targetId}"]`);
+            if (el) el.setAttribute('data-eligible', '0');
+            const cb = document.querySelector(`input.tm-loot-select[data-monster-id="${targetId}"]`);
+            if (cb) cb.checked = false;
+          } else {
+            fail++;
+            if (!firstFail) firstFail = r.message || 'Failed';
+            allNotes.push(r.message || 'Failed');
+          }
+        } catch {
           fail++;
-          if (!firstFail) firstFail = r.message || 'Failed';
-          allNotes.push(r.message || 'Failed');
+          if (!firstFail) firstFail = 'Server error';
+          allNotes.push('Server error');
+        } finally {
+          done++;
+          setStatus(`Looting ${done}/${targetIds.length}... (success: ${ok}, fail: ${fail})`);
         }
-      } catch {
-        fail++;
-        if (!firstFail) firstFail = 'Server error';
-        allNotes.push('Server error');
-      }
-      await new Promise((r) => setTimeout(r, 200));
+      });
+    } finally {
+      for (const b of disable) b.disabled = false;
     }
 
     updateSelectedCount();
@@ -2836,7 +2892,6 @@
       allItems,
       allNotes
     );
-    for (const b of disable) b.disabled = false;
   }
 
   function debounce(fn, delayMs) {
@@ -2862,7 +2917,9 @@
         const controls = document.getElementById('tmLootControls');
         if (controls) controls.style.display = 'none';
       }
-      ensureWaveSizeControls();
+      syncWaveSizeControls();
+      syncNativeWaveQolPanel();
+      hideNativeLootLine();
     }, 250);
 
     const firstCard = document.querySelector('.monster-card[data-monster-id]');
@@ -2880,7 +2937,13 @@
       const t = e.target;
       if (!(t instanceof Element)) return;
       const id = t.id || '';
-      if (id === 'toggleDeadBtn' || id === 'toggleDeadBossBtn') {
+      const text = (t.textContent || '').trim();
+      if (
+        id === 'toggleDeadBtn' ||
+        id === 'toggleDeadBossBtn' ||
+        /\bShow Alive monsters\b/i.test(text) ||
+        /\bShow unclaimed kills\b/i.test(text)
+      ) {
         window.setTimeout(run, 250);
       }
     }, true);
@@ -2891,7 +2954,9 @@
   // Always install styles + observers so the UI works even if dead cards render later (page 1 often loads them after toggles).
   ensureStyles();
   applyCardSizeFromStorage();
-  ensureWaveSizeControls();
+  syncWaveSizeControls();
+  syncNativeWaveQolPanel();
+  hideNativeLootLine();
 
   window.setTimeout(() => {
     // Only show controls if there are dead cards. Observers will handle later renders.
@@ -2905,8 +2970,16 @@
       ensureLootCheckboxes();
       maybeAutoLoadAllDeadPages();
     }
-    ensureWaveSizeControls();
+    syncWaveSizeControls();
+    syncNativeWaveQolPanel();
+    hideNativeLootLine();
   }, 300);
+
+  window.setInterval(() => {
+    syncWaveSizeControls();
+    syncNativeWaveQolPanel();
+    hideNativeLootLine();
+  }, 750);
 
   wireObservers();
 })();
