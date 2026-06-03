@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.21.2
+// @version      0.3.21.3
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -31,11 +31,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.21.2',
+      version: '0.3.21.3',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.21.2'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.21.2');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.21.3'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.21.3');
   } catch (e) {
     // ignore
   }
@@ -191,6 +191,43 @@
     return totals;
   }
 
+  function parsePetDocument(doc) {
+    const sections = Array.from(doc.querySelectorAll('.section'));
+    const equippedSection =
+      sections.find((section) => {
+        const title = section.querySelector('.section-title');
+        return title && !/inventory/i.test(title.textContent || '');
+      }) ||
+      sections.find((section) => Array.from(section.querySelectorAll('.pet-card')).some((card) => card.querySelector('button[onclick*="unequipPet"]')));
+
+    const scope = equippedSection || doc;
+    const pets = Array.from(scope.querySelectorAll('.pet-card[data-pet-inv-id]'))
+      .filter((pet) => !!pet.querySelector('button[onclick*="unequipPet"]') || !!equippedSection);
+
+    const totals = pets.reduce((acc, pet) => {
+      const atk = parseNumberText(pet.querySelector('[data-attack]')?.textContent);
+      const def = parseNumberText(pet.querySelector('[data-defense]')?.textContent);
+      acc.attack += atk;
+      acc.defense += def;
+      if (atk || def) acc.count += 1;
+      return acc;
+    }, { attack: 0, defense: 0, count: 0 });
+
+    totals.total = totals.attack + totals.defense;
+    return totals;
+  }
+
+  function mergeTotals(...parts) {
+    const totals = parts.reduce((acc, part) => {
+      acc.attack += Number(part?.attack || 0);
+      acc.defense += Number(part?.defense || 0);
+      acc.count += Number(part?.count || 0);
+      return acc;
+    }, { attack: 0, defense: 0, count: 0 });
+    totals.total = totals.attack + totals.defense;
+    return totals;
+  }
+
   async function fetchSetTotals(setKey) {
     const url = new URL('/inventory.php', window.location.origin);
     url.searchParams.set('set', setKey);
@@ -201,6 +238,18 @@
     const html = await response.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
     return parseSetDocument(doc);
+  }
+
+  async function fetchPetTotals(setKey) {
+    const url = new URL('/pets.php', window.location.origin);
+    url.searchParams.set('team', setKey);
+
+    const response = await fetch(url.toString(), { credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const html = await response.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return parsePetDocument(doc);
   }
 
   function renderSetCard(set, state) {
@@ -226,14 +275,21 @@
       return;
     }
 
+    const equipment = state.equipment || { attack: 0, defense: 0, total: 0, count: 0 };
+    const pets = state.pets || { attack: 0, defense: 0, total: 0, count: 0 };
+    const combined = mergeTotals(equipment, pets);
+
     card.innerHTML = `
       <h3>${set.title}</h3>
       <div class="tm-stat-set-note">${set.note}</div>
-      <div class="value">${fmt.format(state.total)}</div>
-      ${makeRow('ATK', fmt.format(state.attack), pct(state.attack, state.total))}
-      ${makeRow('DEF', fmt.format(state.defense), pct(state.defense, state.total))}
+      <div class="value">${fmt.format(combined.total)}</div>
+      ${makeRow('Total ATK', fmt.format(combined.attack), pct(combined.attack, combined.total))}
+      ${makeRow('Total DEF', fmt.format(combined.defense), pct(combined.defense, combined.total))}
       <hr>
-      ${makeRow('ATK + DEF', fmt.format(state.total), `${state.count} equipped item${state.count === 1 ? '' : 's'}`)}
+      ${makeRow('Equipment', fmt.format(equipment.total), `${fmt.format(equipment.attack)} ATK / ${fmt.format(equipment.defense)} DEF`)}
+      ${makeRow('Pets', fmt.format(pets.total), `${fmt.format(pets.attack)} ATK / ${fmt.format(pets.defense)} DEF`)}
+      <hr>
+      ${makeRow('Equipped Count', fmt.format(combined.count), `${equipment.count} items + ${pets.count} pets`)}
     `;
   }
 
@@ -241,8 +297,11 @@
     await Promise.all(EQUIP_SETS.map(async (set) => {
       renderSetCard(set, null);
       try {
-        const totals = await fetchSetTotals(set.key);
-        renderSetCard(set, totals);
+        const [equipment, pets] = await Promise.all([
+          fetchSetTotals(set.key),
+          fetchPetTotals(set.key)
+        ]);
+        renderSetCard(set, { equipment, pets });
       } catch (error) {
         renderSetCard(set, { error: String(error?.message || error || 'Failed') });
       }
@@ -312,7 +371,7 @@
 (function(){
   'use strict';
 
-  const APP_VERSION = '0.3.21.2';
+  const APP_VERSION = '0.3.21.3';
   const VERSION = '0.3.21';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
