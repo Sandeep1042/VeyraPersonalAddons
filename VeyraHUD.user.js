@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.20.6
+// @version      0.3.20.12
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -31,11 +31,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.20.6',
+      version: '0.3.20.12',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.20.6'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.20.6');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.20.12'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.20.12');
   } catch (e) {
     // ignore
   }
@@ -45,7 +45,7 @@
 (function(){
   'use strict';
 
-  const APP_VERSION = '0.3.20.6';
+  const APP_VERSION = '0.3.20.12';
   const VERSION = '0.3.20';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
@@ -1502,33 +1502,42 @@
 
   function ensureInlineQuestSummary() {
     if (!isEmberfallActiveWavePage()) return;
-    if (document.getElementById('tmEmberfallHelperInlineWrap')) return;
 
-    const anchor =
-      document.querySelector('.waves-nav') ||
-      document.querySelector('.gate-info') ||
-      document.querySelector('h1') ||
-      document.body.firstElementChild;
+    const anchor = findWaveDescriptionAnchor();
 
     if (!anchor || !anchor.parentElement) return;
 
-    const wrap = document.createElement('div');
-    wrap.id = 'tmEmberfallHelperInlineWrap';
-    Object.assign(wrap.style, {
-      maxWidth: '900px',
-      margin: '12px auto 18px',
-      padding: '12px 14px',
-      borderRadius: '14px',
-      border: '1px solid rgba(255,255,255,0.10)',
-      background: 'linear-gradient(180deg, rgba(36,39,62,.90), rgba(21,23,37,.90))',
-      boxShadow: '0 10px 24px rgba(0,0,0,.32)'
-    });
+    let wrap = document.getElementById('tmEmberfallHelperInlineWrap');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.id = 'tmEmberfallHelperInlineWrap';
+      Object.assign(wrap.style, {
+        maxWidth: '900px',
+        margin: '12px auto 18px',
+        padding: '12px 14px',
+        borderRadius: '14px',
+        border: '1px solid rgba(255,255,255,0.10)',
+        background: 'linear-gradient(180deg, rgba(36,39,62,.90), rgba(21,23,37,.90))',
+        boxShadow: '0 10px 24px rgba(0,0,0,.32)'
+      });
+    }
 
-    const inner = document.createElement('div');
-    inner.id = 'tmEmberfallHelperInline';
-    wrap.appendChild(inner);
+    let inner = document.getElementById('tmEmberfallHelperInline');
+    if (!inner) {
+      inner = document.createElement('div');
+      inner.id = 'tmEmberfallHelperInline';
+      wrap.appendChild(inner);
+    } else if (inner.parentElement !== wrap) {
+      wrap.appendChild(inner);
+    }
 
     anchor.parentElement.insertBefore(wrap, anchor.nextSibling);
+  }
+
+  function findWaveDescriptionAnchor() {
+    const waveTitle = document.querySelector('.wave-title');
+    if (waveTitle?.parentElement) return waveTitle;
+    return null;
   }
 
   function maybeCaptureDropsFromBattle() {
@@ -1536,6 +1545,27 @@
     if (!payload) return;
     if (upsertDrops(payload)) {
       setStatus(`Captured drops for ${payload.mobName} (${payload.items.length} items).`);
+    }
+  }
+
+  function scheduleInlineQuestSummary() {
+    if (!isEmberfallActiveWavePage()) return;
+
+    let tries = 0;
+    const run = () => {
+      tries += 1;
+      ensureInlineQuestSummary();
+      refresh();
+      if (!document.getElementById('tmEmberfallHelperInlineWrap') && tries < 25) {
+        window.setTimeout(run, 200);
+      }
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', run, { once: true });
+      window.setTimeout(run, 300);
+    } else {
+      run();
     }
   }
 
@@ -1550,9 +1580,8 @@
     refresh();
   }
 
-  // Keep the "Quest Journal" box at the top of the Emberfall event wave page.
-  ensureInlineQuestSummary();
-  refresh();
+  // Keep the "Quest Journal" box directly under the Emberfall wave title/description.
+  scheduleInlineQuestSummary();
 
   if (isEmberfallBattlePage()) {
     // Auto-learn loot tables as you visit battles.
@@ -1981,35 +2010,39 @@
   }
 
   function ensureWaveSizeControls() {
-    if (document.getElementById('tmWaveSizeControls')) return;
+    if (!document.body) return;
 
     const anchor =
       document.getElementById('waveQolPanel') ||
-      document.querySelector('.waves-nav') ||
-      document.querySelector('.gate-info') ||
-      document.querySelector('h1') ||
-      document.body.firstElementChild;
+      document.querySelector('.wave-title');
 
     if (!anchor || !anchor.parentElement) return;
 
-    const wrap = document.createElement('div');
-    wrap.id = 'tmWaveSizeControls';
+    let wrap = document.getElementById('tmWaveSizeControls');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.id = 'tmWaveSizeControls';
 
-    const label = document.createElement('span');
-    label.className = 'tm-wave-label';
-    label.textContent = 'Monster card size:';
+      const label = document.createElement('span');
+      label.className = 'tm-wave-label';
+      label.textContent = 'Monster card size:';
 
-    const sel = document.createElement('select');
-    sel.id = 'tmWaveCardSizeSel';
-    sel.className = 'btn';
-    sel.innerHTML = `<option value="">Normal</option><option value="small">Small</option><option value="tiny">Tiny</option>`;
-    sel.value = getSavedCardSize() || '';
+      const sel = document.createElement('select');
+      sel.id = 'tmWaveCardSizeSel';
+      sel.className = 'btn';
+      sel.innerHTML = `<option value="">Normal</option><option value="small">Small</option><option value="tiny">Tiny</option>`;
+      sel.value = getSavedCardSize() || '';
 
-    sel.addEventListener('change', () => setCardSize(sel.value));
+      sel.addEventListener('change', () => setCardSize(sel.value));
 
-    wrap.appendChild(label);
-    wrap.appendChild(sel);
-    anchor.parentElement.insertBefore(wrap, anchor.nextSibling);
+      wrap.appendChild(label);
+      wrap.appendChild(sel);
+    }
+
+    const desiredNext = anchor.nextSibling;
+    if (wrap.parentElement !== anchor.parentElement || wrap.previousElementSibling !== anchor) {
+      anchor.parentElement.insertBefore(wrap, desiredNext);
+    }
 
     // Match wave button look (Multi Target buttons).
     applyButtonThemeFromReference(wrap);
@@ -2027,6 +2060,26 @@
     const hide = isDeadLootViewActive();
     panel.classList.toggle('tm-waveqol-hidden', hide);
     if (!hide && panel.style.display === 'none') panel.style.display = '';
+  }
+
+  function enforceWaveTopbarFlush() {
+    const topbar = document.querySelector('.game-topbar');
+    if (!(topbar instanceof HTMLElement) || !document.body) return;
+
+    document.documentElement.style.setProperty('margin-top', '0px', 'important');
+    document.body.style.setProperty('margin-top', '0px', 'important');
+    document.body.style.setProperty('padding-block-start', '0px', 'important');
+
+    topbar.style.setProperty('position', 'fixed', 'important');
+    topbar.style.setProperty('top', '0px', 'important');
+    topbar.style.setProperty('left', '0px', 'important');
+    topbar.style.setProperty('right', '0px', 'important');
+    topbar.style.setProperty('margin-top', '0px', 'important');
+
+    const height = Math.ceil(topbar.getBoundingClientRect().height || 74);
+    if (height > 0) {
+      document.body.style.setProperty('padding-top', `${height}px`, 'important');
+    }
   }
 
   function findReferenceMultiTargetButton() {
@@ -2283,6 +2336,24 @@
       /* Fix any encoding weirdness: force the actual checkmark glyph */
       .tm-loot-select:checked::before{
         content: "✓" !important;
+      }
+
+      html:has(body .game-topbar),
+      body:has(.game-topbar),
+      html.tm-veyra-wave-page,
+      html.tm-veyra-wave-page body{
+        margin-top: 0 !important;
+      }
+      body:has(.game-topbar) .game-topbar,
+      html.tm-veyra-wave-page .game-topbar{
+        top: 0 !important;
+        margin-top: 0 !important;
+      }
+      body:has(.game-topbar) .side-drawer,
+      body:has(.game-topbar) .page-overlay,
+      html.tm-veyra-wave-page .side-drawer,
+      html.tm-veyra-wave-page .page-overlay{
+        top: 0 !important;
       }
 
       /* ===== Wave card size control bar (Wave 3 style) ===== */
@@ -3207,9 +3278,11 @@
   }
 
   if (!/\/active_wave\.php$/i.test(window.location.pathname)) return;
+  try { document.documentElement.classList.add('tm-veyra-wave-page'); } catch {}
 
   // Always install styles + observers so the UI works even if dead cards render later (page 1 often loads them after toggles).
   ensureStyles();
+  enforceWaveTopbarFlush();
   applyCardSizeFromStorage();
   syncWaveSizeControls();
   syncNativeWaveQolPanel();
@@ -3230,12 +3303,14 @@
     syncWaveSizeControls();
     syncNativeWaveQolPanel();
     hideNativeLootLine();
+    enforceWaveTopbarFlush();
   }, 300);
 
   window.setInterval(() => {
     syncWaveSizeControls();
     syncNativeWaveQolPanel();
     hideNativeLootLine();
+    enforceWaveTopbarFlush();
   }, 750);
 
   wireObservers();
@@ -4256,6 +4331,10 @@
   }
 
   function parsePvpNodeBoard(doc, node, baseUrl) {
+    const lockText = cleanText(doc.querySelector('.warn')?.textContent || '');
+    const timerText = formatCubeTimerValue(lockText);
+    const timerSeconds = parseCubeDurationSeconds(timerText);
+    const timerExpiresAt = timerSeconds ? Date.now() + (timerSeconds * 1000) : 0;
     const items = Array.from(doc.querySelectorAll('.match')).map((match) => {
       const title = cleanText(match.querySelector('.matchTitle')?.textContent || 'PvP Match');
       const badge = cleanText(match.querySelector('.badge')?.textContent || '').toLowerCase();
@@ -4305,7 +4384,7 @@
       if (a.filledSlots !== b.filledSlots) return b.filledSlots - a.filledSlots;
       return a.matchNo - b.matchNo;
     });
-    return { type: 'pvp', nodeId: String(node.id), items };
+    return { type: 'pvp', nodeId: String(node.id), items, lockText, timerText, timerExpiresAt };
   }
 
   function parseScriptAssignmentJson(html, name) {
@@ -4488,6 +4567,11 @@
   function getCubePvpJumpStatus(groups, nodeBoardsByNodeId = new Map()) {
     const pvpGroup = groups.find((group) => group.key === 'pvp');
     const pvpNodes = pvpGroup?.nodes || [];
+    const timerText = getCubePvpTimerText(pvpNodes, nodeBoardsByNodeId);
+    if (timerText) {
+      return { ready: false, text: `PvP ${timerText}` };
+    }
+
     const openItems = pvpNodes.flatMap((node) => {
       const board = nodeBoardsByNodeId.get(String(node.id));
       return (board?.items || []).filter(isOpenCubePvpItem);
@@ -4496,11 +4580,20 @@
       return { ready: true, text: 'Ready PvP' };
     }
 
-    const timerText = getCubePvpTimerText(pvpNodes);
-    return { ready: false, text: timerText ? `PvP ${timerText}` : 'PvP timer...' };
+    return { ready: false, text: 'PvP timer...' };
   }
 
-  function getCubePvpTimerText(nodes) {
+  function getCubePvpTimerText(nodes, nodeBoardsByNodeId = new Map()) {
+    for (const node of nodes || []) {
+      const board = nodeBoardsByNodeId.get(String(node.id));
+      const expiresAt = Number(board?.timerExpiresAt || 0);
+      if (expiresAt > Date.now()) {
+        return formatCubeDuration(Math.ceil((expiresAt - Date.now()) / 1000));
+      }
+      const text = formatCubeTimerValue(board?.timerText || board?.lockText || board?.cooldownText || '');
+      if (text) return text;
+    }
+
     for (const node of nodes || []) {
       const meta = node?.state_meta && typeof node.state_meta === 'object' && !Array.isArray(node.state_meta) ? node.state_meta : {};
       const values = [
@@ -4525,7 +4618,12 @@
     }
 
     const pageText = cleanText(document.body?.textContent || '');
-    const pvpTimerMatch = pageText.match(/(?:PvP|PVP)[^0-9]{0,40}((?:\d+\s*d\s*)?(?:\d{1,2}:)?\d{1,2}:\d{2}|\d+\s*(?:sec|secs|second|seconds|min|mins|minute|minutes|hour|hours))/i);
+    const pvpTimerMatch =
+      pageText.match(/locked\s+to\s+another\s+match[\s\S]{0,120}?\babout\s+((?:\d+\s*d\s*)?(?:\d{1,2}:)?\d{1,2}:\d{2}|\d+\s*(?:sec|secs|second|seconds|min|mins|minute|minutes|hour|hours))\s+more/i) ||
+      pageText.match(/\babout\s+((?:\d+\s*d\s*)?(?:\d{1,2}:)?\d{1,2}:\d{2}|\d+\s*(?:sec|secs|second|seconds|min|mins|minute|minutes|hour|hours))\s+more/i) ||
+      pageText.match(/(?:PvP|PVP)[^0-9]{0,90}((?:\d+\s*d\s*)?(?:\d{1,2}:)?\d{1,2}:\d{2}|\d+\s*(?:sec|secs|second|seconds|min|mins|minute|minutes|hour|hours))/i) ||
+      pageText.match(/((?:\d+\s*d\s*)?(?:\d{1,2}:)?\d{1,2}:\d{2})\s*(?:left|remaining|until|cooldown|to join|before)/i) ||
+      pageText.match(/(\d+\s*(?:sec|secs|second|seconds|min|mins|minute|minutes|hour|hours))\s*(?:left|remaining|until|cooldown|to join|before)/i);
     return pvpTimerMatch?.[1] ? cleanText(pvpTimerMatch[1]) : '';
   }
 
@@ -4545,6 +4643,26 @@
     if (Number.isFinite(epoch) && epoch > 0) return formatCubeTimerValue(epoch);
     const timeMatch = text.match(/(?:\d+\s*d\s*)?(?:\d{1,2}:)?\d{1,2}:\d{2}|\d+\s*(?:sec|secs|second|seconds|min|mins|minute|minutes|hour|hours)/i);
     return timeMatch ? cleanText(timeMatch[0]) : text;
+  }
+
+  function parseCubeDurationSeconds(value) {
+    const text = cleanText(value);
+    if (!text) return 0;
+    const clock = text.match(/^(?:(\d+)\s*d\s*)?(?:(\d{1,2}):)?(\d{1,2}):(\d{2})$/i);
+    if (clock) {
+      const days = Number(clock[1] || 0);
+      const hours = Number(clock[2] || 0);
+      const minutes = Number(clock[3] || 0);
+      const seconds = Number(clock[4] || 0);
+      return (days * 86400) + (hours * 3600) + (minutes * 60) + seconds;
+    }
+
+    const amount = Number((text.match(/\d+/) || [])[0] || 0);
+    if (!amount) return 0;
+    if (/hour|hr/i.test(text)) return amount * 3600;
+    if (/min/i.test(text)) return amount * 60;
+    if (/sec|second/i.test(text)) return amount;
+    return 0;
   }
 
   function formatCubeDuration(totalSeconds) {
