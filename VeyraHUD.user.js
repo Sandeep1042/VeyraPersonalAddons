@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.21.3
+// @version      0.3.21.8
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -31,11 +31,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.21.3',
+      version: '0.3.21.8',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.21.3'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.21.3');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.21.8'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.21.8');
   } catch (e) {
     // ignore
   }
@@ -55,6 +55,7 @@
     { key: 'pvp_attack', title: 'PvP Attack Set', note: 'Current PvP attack equipment' },
     { key: 'defense', title: 'PvP Defense Set', note: 'Current PvP defense equipment' }
   ];
+  let classPassiveState = { loading: true, className: '', passive: '', error: '' };
 
   function readNumber(id) {
     const el = document.getElementById(id);
@@ -73,6 +74,23 @@
         </span>
       </div>
     `;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[ch]));
+  }
+
+  function cleanAbilityText(value) {
+    return String(value || '')
+      .replace(/^[^A-Za-z0-9%+.-]+/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   function ensureStyles() {
@@ -128,6 +146,72 @@
         text-align:center;
         margin:-2px 0 8px;
         min-height:28px;
+      }
+      .tm-stat-pet-abilities{
+        display:flex;
+        flex-direction:column;
+        gap:8px;
+        margin-top:10px;
+        text-align:left;
+      }
+      .tm-stat-pet-ability{
+        border:1px solid #303449;
+        border-radius:8px;
+        background:#181a25;
+        padding:8px;
+      }
+      .tm-stat-pet-ability b{
+        display:block;
+        color:#f3e2ac;
+        font-size:12px;
+        margin-bottom:4px;
+      }
+      .tm-stat-pet-ability p{
+        margin:0;
+        color:#dfe3f4;
+        font-size:11px;
+        line-height:1.35;
+      }
+      .tm-stat-pet-links{
+        display:flex;
+        flex-direction:column;
+        gap:5px;
+        margin-top:7px;
+        padding-top:7px;
+        border-top:1px dashed #34384d;
+      }
+      .tm-stat-pet-link{
+        color:#c7cce6;
+        font-size:11px;
+        line-height:1.35;
+      }
+      .tm-stat-pet-link span{
+        color:#9aa0be;
+      }
+      .tm-stat-class-passive{
+        margin-top:10px;
+        padding:9px;
+        border:1px solid #303449;
+        border-radius:8px;
+        background:#181a25;
+        text-align:left;
+      }
+      .tm-stat-class-passive b{
+        display:block;
+        color:#ffd369;
+        font-size:12px;
+        margin-bottom:5px;
+      }
+      .tm-stat-class-passive p{
+        margin:0;
+        color:#dfe3f4;
+        font-size:12px;
+        line-height:1.4;
+      }
+      .tm-stat-class-effects{
+        margin-top:8px;
+        padding-top:8px;
+        border-top:1px dashed #34384d;
       }
       @media(max-width:900px){
         body.tm-veyra-stats-page .grid{
@@ -204,16 +288,29 @@
     const pets = Array.from(scope.querySelectorAll('.pet-card[data-pet-inv-id]'))
       .filter((pet) => !!pet.querySelector('button[onclick*="unequipPet"]') || !!equippedSection);
 
+    const details = [];
     const totals = pets.reduce((acc, pet) => {
       const atk = parseNumberText(pet.querySelector('[data-attack]')?.textContent);
       const def = parseNumberText(pet.querySelector('[data-defense]')?.textContent);
+      const id = parseNumberText(pet.getAttribute('data-pet-inv-id'));
+      const name =
+        String(pet.querySelector('.info-btn')?.getAttribute('data-name') || '').trim() ||
+        String(pet.querySelector('img[alt]')?.getAttribute('alt') || '').trim() ||
+        `Pet #${id || acc.count + 1}`;
+      const ability = cleanAbilityText(pet.querySelector('[data-power]')?.textContent);
       acc.attack += atk;
       acc.defense += def;
-      if (atk || def) acc.count += 1;
+      if (atk || def) {
+        acc.count += 1;
+        details.push({ id, name, attack: atk, defense: def, ability, links: [] });
+      }
       return acc;
     }, { attack: 0, defense: 0, count: 0 });
 
     totals.total = totals.attack + totals.defense;
+    totals.mainCount = totals.count;
+    totals.linkedCount = 0;
+    totals.details = details;
     return totals;
   }
 
@@ -249,7 +346,234 @@
 
     const html = await response.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    return parsePetDocument(doc);
+    const totals = parsePetDocument(doc);
+    await hydratePetLinkDetails(totals);
+    return totals;
+  }
+
+  function parseClassPassiveDocument(doc, html) {
+    const scriptText = String(html || '');
+    const configMatch = scriptText.match(/window\.SkillTreeConfig\s*=\s*\{([\s\S]*?)\n\};/);
+    const configBody = configMatch ? configMatch[1] : '';
+    const classNameMatch = configBody.match(/className\s*:\s*["']([^"']+)["']/);
+    const passiveMatch = configBody.match(/classPassive\s*:\s*["']([\s\S]*?)["']\s*(?:,|\/\/|\n)/);
+
+    const modalTitle = String(doc.querySelector('#passive-modal .modal-title')?.textContent || '').replace(/\s+Passive\s*$/i, '').trim();
+    const modalPassive = String(doc.querySelector('#passive-body')?.textContent || '').replace(/\s+/g, ' ').trim();
+
+    return {
+      className: String(classNameMatch?.[1] || modalTitle || '').trim(),
+      passive: cleanAbilityText(passiveMatch?.[1] || modalPassive || '')
+    };
+  }
+
+  async function fetchClassPassive() {
+    const url = new URL('/class_skill_tree.php', window.location.origin);
+    const response = await fetch(url.toString(), { credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const html = await response.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return parseClassPassiveDocument(doc, html);
+  }
+
+  function renderClassPassive() {
+    if (classPassiveState.loading) {
+      return `
+        <hr>
+        <div class="tm-stat-class-passive">
+          <b>Class Passive</b>
+          <p>Loading...</p>
+        </div>
+      `;
+    }
+
+    if (classPassiveState.error) {
+      return `
+        <hr>
+        <div class="tm-stat-class-passive">
+          <b>Class Passive</b>
+          <p>Unable to load class ability right now.</p>
+        </div>
+      `;
+    }
+
+    const title = classPassiveState.className ? `${classPassiveState.className} Passive` : 'Class Passive';
+    return `
+      <hr>
+      <div class="tm-stat-class-passive">
+        <b>${escapeHtml(title)}</b>
+        <p>${escapeHtml(classPassiveState.passive || 'No passive ability found.')}</p>
+      </div>
+    `;
+  }
+
+  function getClassStatEffects(passiveText) {
+    const text = String(passiveText || '').toLowerCase();
+    const effects = { attackPct: 0, defensePct: 0 };
+    if (!text) return effects;
+
+    const parts = text.split(/[.;]|\band\b/gi);
+    for (const rawPart of parts) {
+      const part = rawPart.trim();
+      if (!part) continue;
+      const percentMatch = part.match(/(\d+(?:\.\d+)?)\s*%/);
+      if (!percentMatch) continue;
+
+      let sign = 0;
+      if (/\b(increase|increases|increased|boost|boosts|gain|gains|raise|raises)\b/i.test(part)) sign = 1;
+      if (/\b(decrease|decreases|decreased|reduce|reduces|reduced|lower|lowers|lowered|lose|loses)\b/i.test(part)) sign = -1;
+      if (!sign) continue;
+
+      const amount = (Number(percentMatch[1]) || 0) / 100 * sign;
+      if (/\b(atk|attack)\b/i.test(part)) effects.attackPct += amount;
+      if (/\b(def|defense)\b/i.test(part)) effects.defensePct += amount;
+    }
+
+    return effects;
+  }
+
+  function renderClassAffectedStats(attack, defense) {
+    if (classPassiveState.loading) {
+      return `
+        <div class="tm-stat-class-effects">
+          ${makeRow('Affected ATK', 'Loading...', 'class passive')}
+          ${makeRow('Affected DEF', 'Loading...', 'class passive')}
+        </div>
+      `;
+    }
+
+    if (classPassiveState.error) {
+      return `
+        <div class="tm-stat-class-effects">
+          ${makeRow('Affected Stats', 'Unknown', 'class passive unavailable')}
+        </div>
+      `;
+    }
+
+    const effects = getClassStatEffects(classPassiveState.passive);
+    const changed = Math.abs(effects.attackPct) > 0 || Math.abs(effects.defensePct) > 0;
+    if (!changed) {
+      return `
+        <div class="tm-stat-class-effects">
+          ${makeRow('Affected Stats', 'No changes', classPassiveState.className ? `${classPassiveState.className} passive` : 'class passive')}
+        </div>
+      `;
+    }
+
+    const affectedAttack = Math.round(attack * (1 + effects.attackPct));
+    const affectedDefense = Math.round(defense * (1 + effects.defensePct));
+    const atkNote = effects.attackPct ? `${effects.attackPct > 0 ? '+' : ''}${(effects.attackPct * 100).toFixed(2)}%` : 'unchanged';
+    const defNote = effects.defensePct ? `${effects.defensePct > 0 ? '+' : ''}${(effects.defensePct * 100).toFixed(2)}%` : 'unchanged';
+
+    return `
+      <div class="tm-stat-class-effects">
+        ${makeRow('Affected ATK', fmt.format(affectedAttack), atkNote)}
+        ${makeRow('Affected DEF', fmt.format(affectedDefense), defNote)}
+      </div>
+    `;
+  }
+
+  async function hydrateClassPassive() {
+    try {
+      const data = await fetchClassPassive();
+      classPassiveState = {
+        loading: false,
+        className: data.className || '',
+        passive: data.passive || '',
+        error: ''
+      };
+    } catch (error) {
+      classPassiveState = {
+        loading: false,
+        className: '',
+        passive: '',
+        error: String(error?.message || error || 'Failed')
+      };
+    }
+    render();
+  }
+
+  async function fetchPetLinkDetails(pet) {
+    if (!pet?.id) return null;
+
+    const url = new URL('/pet_links_ajax.php', window.location.origin);
+    url.searchParams.set('pet_inv_id', String(pet.id));
+
+    const response = await fetch(url.toString(), { credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok) return null;
+
+    const data = await response.json().catch(() => null);
+    if (!data || data.status !== 'success') return null;
+
+    return data;
+  }
+
+  async function hydratePetLinkDetails(totals) {
+    const details = Array.isArray(totals?.details) ? totals.details : [];
+    if (!details.length) return;
+
+    await Promise.all(details.map(async (pet) => {
+      let data = null;
+      try {
+        data = await fetchPetLinkDetails(pet);
+      } catch (e) {
+        data = null;
+      }
+      if (!data) return;
+
+      const linkedPet = data.pet || {};
+      const updatedAttack = Number(linkedPet.updated_attack);
+      const updatedDefense = Number(linkedPet.updated_defense);
+      if (Number.isFinite(updatedAttack) && Number.isFinite(updatedDefense)) {
+        totals.attack += updatedAttack - pet.attack;
+        totals.defense += updatedDefense - pet.defense;
+        pet.attack = updatedAttack;
+        pet.defense = updatedDefense;
+      }
+
+      const totalEffect = cleanAbilityText(linkedPet.total_effect_text);
+      if (totalEffect) pet.ability = totalEffect;
+
+      pet.links = Array.isArray(data.links)
+        ? data.links.map((link) => ({
+          level: parseNumberText(link.link_level),
+          name: String(link.name || link.pet_name || link.link_pet_name || `Linked Pet #${link.link_pet_id || ''}`).trim(),
+          ability: cleanAbilityText(link.effect_text)
+        })).filter((link) => link.name || link.ability)
+        : [];
+    }));
+
+    totals.linkedCount = details.reduce((sum, pet) => sum + (Array.isArray(pet.links) ? pet.links.length : 0), 0);
+    totals.count = Number(totals.mainCount || details.length) + totals.linkedCount;
+    totals.total = totals.attack + totals.defense;
+  }
+
+  function renderPetAbilities(pets) {
+    const details = Array.isArray(pets?.details) ? pets.details : [];
+    if (!details.length) return '';
+
+    return `
+      <hr>
+      <div class="tm-stat-pet-abilities">
+        ${details.map((pet) => `
+          <div class="tm-stat-pet-ability">
+            <b>${escapeHtml(pet.name || 'Pet')}</b>
+            <p>${escapeHtml(pet.ability || 'No ability text found.')}</p>
+            ${Array.isArray(pet.links) && pet.links.length ? `
+              <div class="tm-stat-pet-links">
+                ${pet.links.map((link) => `
+                  <div class="tm-stat-pet-link">
+                    <span>Link ${escapeHtml(link.level || '?')}:</span>
+                    ${escapeHtml(link.name || 'Linked pet')} - ${escapeHtml(link.ability || 'No ability text found.')}
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `).join('')}
+      </div>
+    `;
   }
 
   function renderSetCard(set, state) {
@@ -286,10 +610,13 @@
       ${makeRow('Total ATK', fmt.format(combined.attack), pct(combined.attack, combined.total))}
       ${makeRow('Total DEF', fmt.format(combined.defense), pct(combined.defense, combined.total))}
       <hr>
-      ${makeRow('Equipment', fmt.format(equipment.total), `${fmt.format(equipment.attack)} ATK / ${fmt.format(equipment.defense)} DEF`)}
-      ${makeRow('Pets', fmt.format(pets.total), `${fmt.format(pets.attack)} ATK / ${fmt.format(pets.defense)} DEF`)}
+      ${makeRow('Equipment ATK', fmt.format(equipment.attack), pct(equipment.attack, combined.total))}
+      ${makeRow('Equipment DEF', fmt.format(equipment.defense), pct(equipment.defense, combined.total))}
+      ${makeRow('Pet ATK', fmt.format(pets.attack), pct(pets.attack, combined.total))}
+      ${makeRow('Pet DEF', fmt.format(pets.defense), pct(pets.defense, combined.total))}
       <hr>
-      ${makeRow('Equipped Count', fmt.format(combined.count), `${equipment.count} items + ${pets.count} pets`)}
+      ${makeRow('Equipped Count', fmt.format(combined.count), `${equipment.count} items + ${pets.mainCount || pets.count || 0} main pets + ${pets.linkedCount || 0} linked pets`)}
+      ${renderPetAbilities(pets)}
     `;
   }
 
@@ -345,6 +672,8 @@
       ${makeRow('STAMINA', pct(stamina, total), fmt.format(stamina))}
       <hr>
       ${makeRow('ATK + DEF / All', pct(atkDef, total), `${fmt.format(atkDef)} of ${fmt.format(total)}`)}
+      ${renderClassAffectedStats(attack, defense)}
+      ${renderClassPassive()}
     `;
 
     return true;
@@ -353,6 +682,7 @@
   function init() {
     if (!render()) return;
     hydrateSetCards();
+    hydrateClassPassive();
 
     const watched = ['v-attack', 'v-defense', 'v-stamina', 'v-points']
       .map((id) => document.getElementById(id))
@@ -367,11 +697,123 @@
   else init();
 })();
 
+// ---- Class passive in the top buff modal ----
+(function(){
+  'use strict';
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[ch]));
+  }
+
+  function cleanAbilityText(value) {
+    return String(value || '')
+      .replace(/^[^A-Za-z0-9%+.-]+/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function parseClassPassiveDocument(doc, html) {
+    const scriptText = String(html || '');
+    const configMatch = scriptText.match(/window\.SkillTreeConfig\s*=\s*\{([\s\S]*?)\n\};/);
+    const configBody = configMatch ? configMatch[1] : '';
+    const classNameMatch = configBody.match(/className\s*:\s*["']([^"']+)["']/);
+    const passiveMatch = configBody.match(/classPassive\s*:\s*["']([\s\S]*?)["']\s*(?:,|\/\/|\n)/);
+
+    const modalTitle = String(doc.querySelector('#passive-modal .modal-title')?.textContent || '').replace(/\s+Passive\s*$/i, '').trim();
+    const modalPassive = String(doc.querySelector('#passive-body')?.textContent || '').replace(/\s+/g, ' ').trim();
+
+    return {
+      className: String(classNameMatch?.[1] || modalTitle || '').trim(),
+      passive: cleanAbilityText(passiveMatch?.[1] || modalPassive || '')
+    };
+  }
+
+  async function fetchClassPassive() {
+    const url = new URL('/class_skill_tree.php', window.location.origin);
+    const response = await fetch(url.toString(), { credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const html = await response.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return parseClassPassiveDocument(doc, html);
+  }
+
+  function getActiveBuffCount(list) {
+    return Array.from(list.querySelectorAll('.buff-row'))
+      .filter((row) => !/no active buffs/i.test(row.textContent || '') && row.id !== 'tmClassPassiveBuffRow')
+      .length;
+  }
+
+  function syncBuffBadge(list) {
+    const btn = document.getElementById('buffs_btn');
+    if (!btn || !list) return;
+
+    const count = getActiveBuffCount(list) + (document.getElementById('tmClassPassiveBuffRow') ? 1 : 0);
+    let badge = btn.querySelector('.gtb-badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'gtb-badge';
+      btn.appendChild(badge);
+    }
+    badge.textContent = String(count);
+    badge.style.display = count > 0 ? '' : 'none';
+  }
+
+  function injectClassBuff(data) {
+    const list = document.getElementById('buffs_list');
+    if (!list || !data?.passive) return;
+
+    Array.from(list.querySelectorAll('.buff-row'))
+      .filter((row) => /no active buffs/i.test(row.textContent || ''))
+      .forEach((row) => row.remove());
+
+    let row = document.getElementById('tmClassPassiveBuffRow');
+    if (!row) {
+      row = document.createElement('div');
+      row.id = 'tmClassPassiveBuffRow';
+      row.className = 'buff-row';
+      list.prepend(row);
+    }
+
+    const title = data.className ? `${data.className} Passive` : 'Class Passive';
+    row.innerHTML = `
+      <div class="buff-ico">Class</div>
+      <div class="buff-info">
+        <div class="buff-name">${escapeHtml(title)}</div>
+        <div class="buff-desc">${escapeHtml(data.passive)}</div>
+      </div>
+      <div class="buff-ends">always on</div>
+    `;
+
+    syncBuffBadge(list);
+  }
+
+  async function init() {
+    const list = document.getElementById('buffs_list');
+    if (!list) return;
+
+    try {
+      injectClassBuff(await fetchClassPassive());
+    } catch (e) {
+      // Keep the stock buff modal untouched if the class page cannot be loaded.
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
+})();
+
 // ---- One-time update notification (shows once per version) ----
 (function(){
   'use strict';
 
-  const APP_VERSION = '0.3.21.3';
+  const APP_VERSION = '0.3.21.8';
   const VERSION = '0.3.21';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
