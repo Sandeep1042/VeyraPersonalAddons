@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.21.8
+// @version      0.3.21.10
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -31,11 +31,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.21.8',
+      version: '0.3.21.10',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.21.8'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.21.8');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.21.10'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.21.10');
   } catch (e) {
     // ignore
   }
@@ -409,7 +409,10 @@
   }
 
   function getClassStatEffects(passiveText) {
-    const text = String(passiveText || '').toLowerCase();
+    const text = String(passiveText || '')
+      .toLowerCase()
+      .replace(/\b(atk|attack)\s+(?:and|&|\/)\s+(def|defense)\b/gi, 'stats')
+      .replace(/\b(def|defense)\s+(?:and|&|\/)\s+(atk|attack)\b/gi, 'stats');
     const effects = { attackPct: 0, defensePct: 0 };
     if (!text) return effects;
 
@@ -426,8 +429,16 @@
       if (!sign) continue;
 
       const amount = (Number(percentMatch[1]) || 0) / 100 * sign;
-      if (/\b(atk|attack)\b/i.test(part)) effects.attackPct += amount;
-      if (/\b(def|defense)\b/i.test(part)) effects.defensePct += amount;
+      const affectsAllStats =
+        /\b(main|all|total|base)\s+stats?\b/i.test(part) ||
+        /\bstats?\b/i.test(part) ||
+        /\b(atk|attack)\b[\s\S]{0,30}\b(def|defense)\b/i.test(part) ||
+        /\b(def|defense)\b[\s\S]{0,30}\b(atk|attack)\b/i.test(part);
+      const affectsAttack = affectsAllStats || /\b(atk|attack|damage)\b/i.test(part);
+      const affectsDefense = affectsAllStats || /\b(def|defense)\b/i.test(part);
+
+      if (affectsAttack) effects.attackPct += amount;
+      if (affectsDefense) effects.defensePct += amount;
     }
 
     return effects;
@@ -437,8 +448,8 @@
     if (classPassiveState.loading) {
       return `
         <div class="tm-stat-class-effects">
-          ${makeRow('Affected ATK', 'Loading...', 'class passive')}
-          ${makeRow('Affected DEF', 'Loading...', 'class passive')}
+          ${makeRow('Raw/Lv ATK', 'Loading...', 'class passive only')}
+          ${makeRow('Raw/Lv DEF', 'Loading...', 'class passive only')}
         </div>
       `;
     }
@@ -446,7 +457,7 @@
     if (classPassiveState.error) {
       return `
         <div class="tm-stat-class-effects">
-          ${makeRow('Affected Stats', 'Unknown', 'class passive unavailable')}
+          ${makeRow('Raw/Lv Stats', 'Unknown', 'class passive unavailable')}
         </div>
       `;
     }
@@ -456,7 +467,7 @@
     if (!changed) {
       return `
         <div class="tm-stat-class-effects">
-          ${makeRow('Affected Stats', 'No changes', classPassiveState.className ? `${classPassiveState.className} passive` : 'class passive')}
+          ${makeRow('Raw/Lv Stats', 'No changes', classPassiveState.className ? `${classPassiveState.className} passive only` : 'class passive only')}
         </div>
       `;
     }
@@ -468,8 +479,8 @@
 
     return `
       <div class="tm-stat-class-effects">
-        ${makeRow('Affected ATK', fmt.format(affectedAttack), atkNote)}
-        ${makeRow('Affected DEF', fmt.format(affectedDefense), defNote)}
+        ${makeRow('Raw/Lv ATK', fmt.format(affectedAttack), `${atkNote}; gear/pets not included`)}
+        ${makeRow('Raw/Lv DEF', fmt.format(affectedDefense), `${defNote}; gear/pets not included`)}
       </div>
     `;
   }
@@ -813,7 +824,7 @@
 (function(){
   'use strict';
 
-  const APP_VERSION = '0.3.21.8';
+  const APP_VERSION = '0.3.21.10';
   const VERSION = '0.3.21';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
@@ -8483,7 +8494,7 @@
       if (clickIfPossible(autoBtn, 'Enabling Auto Play...')) {
         queueNext(ACTION_GAP_MS);
         return;
-      }
+      }a
     }
 
     if (autoPlayEnabled()) setStatus('Auto Play running...');
