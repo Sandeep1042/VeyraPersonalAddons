@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.23.1
+// @version      0.3.23.2
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -31,11 +31,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.23.1',
+      version: '0.3.23.2',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.23.1'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.23.1');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.23.2'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.23.2');
   } catch (e) {
     // ignore
   }
@@ -824,7 +824,7 @@
 (function(){
   'use strict';
 
-  const APP_VERSION = '0.3.23.1';
+  const APP_VERSION = '0.3.23.2';
   const VERSION = '0.3.23';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
@@ -7178,7 +7178,7 @@
       const personalDamage = Number(monster.personalDamage || 0);
       // Consider a monster "started" if it has any personal damage, even if it was
       // hit outside this script (or before quota-store tracking existed).
-      if (personalDamage > 0 || quotaStore.has(monster)) {
+      if (personalDamage > 0 || (quotaStore.has(monster) && personalDamage === null)) {
         usage.started += 1;
       }
       if (personalDamage >= Number(monster.limitRule.targetDamage || 0)) {
@@ -8386,31 +8386,52 @@
         if (!monster.limitRule) {
           return false;
         }
-        const monsterId = String(monster.id || '');
-        if (!monsterId) {
+        const monsterKey = getQuotaMonsterKey(monster);
+        if (!monsterKey) {
           return false;
         }
         const ruleList = state.rules[monster.limitRule.ruleKey] || [];
-        return ruleList.includes(monsterId);
+        return ruleList.includes(monsterKey);
       },
       mark(monster) {
         ensureCurrentCycle();
         if (!monster.limitRule) {
           return;
         }
-        const monsterId = String(monster.id || '');
-        if (!monsterId) {
+        const monsterKey = getQuotaMonsterKey(monster);
+        if (!monsterKey) {
           return;
         }
         const ruleKey = monster.limitRule.ruleKey;
-        const ruleList = state.rules[ruleKey] || [];
-        if (!ruleList.includes(monsterId)) {
-          ruleList.push(monsterId);
+        const ruleList = normalizeQuotaRuleList(state.rules[ruleKey]);
+        if (!ruleList.includes(monsterKey)) {
+          ruleList.push(monsterKey);
           state.rules[ruleKey] = ruleList;
           writeQuotaState(state);
         }
       }
     };
+  }
+
+  function getQuotaMonsterKey(monster) {
+    if (!monster) {
+      return '';
+    }
+    const instanceId = String(monster.instanceId || '').trim();
+    const dgmid = String(monster.dgmid || '').trim();
+    if (!instanceId || !dgmid) {
+      return '';
+    }
+    return [USER_ID || 'nouser', instanceId, dgmid].join('|');
+  }
+
+  function normalizeQuotaRuleList(value) {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value
+      .map((item) => String(item || ''))
+      .filter((item) => item.split('|').length >= 3);
   }
 
   function createDamageModelStore() {
@@ -8561,6 +8582,17 @@
       const raw = window.localStorage.getItem(QUOTA_STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : null;
       if (parsed && parsed.cycleKey === cycleKey && parsed.rules && typeof parsed.rules === 'object') {
+        let changed = false;
+        Object.keys(parsed.rules).forEach((ruleKey) => {
+          const normalized = normalizeQuotaRuleList(parsed.rules[ruleKey]);
+          if (normalized.length !== (Array.isArray(parsed.rules[ruleKey]) ? parsed.rules[ruleKey].length : 0)) {
+            changed = true;
+          }
+          parsed.rules[ruleKey] = normalized;
+        });
+        if (changed) {
+          writeQuotaState(parsed);
+        }
         return parsed;
       }
     } catch (_error) {
