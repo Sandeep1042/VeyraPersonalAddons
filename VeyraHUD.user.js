@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.21.10
+// @version      0.3.23.1
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -31,11 +31,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.21.10',
+      version: '0.3.23.1',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.21.10'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.21.10');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.23.1'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.23.1');
   } catch (e) {
     // ignore
   }
@@ -824,11 +824,24 @@
 (function(){
   'use strict';
 
-  const APP_VERSION = '0.3.21.10';
-  const VERSION = '0.3.21';
+  const APP_VERSION = '0.3.23.1';
+  const VERSION = '0.3.23';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
   const CHANGELOG = {
+    '0.3.23': {
+      date: '2026-06-03',
+      changes: [
+        'Olympus: replaces the Invade Olympus wave button with Shops, Hermes, and Artemis shortcuts.',
+        'Olympus: adds a Shops landing panel on the Olympus map with quick buttons for the current shop NPCs.'
+      ]
+    },
+    '0.3.22': {
+      date: '2026-06-03',
+      changes: [
+        'Monster Board: hides the old D1/D2 dungeon map after the board reads the map locations, so the board becomes the main view.'
+      ]
+    },
     '0.3.21': {
       date: '2026-06-03',
       changes: [
@@ -4111,6 +4124,211 @@
 })();
 
 
+// ---- Olympus wave shortcuts ----
+(function(){
+  'use strict';
+
+  const path = String(window.location.pathname || '').toLowerCase();
+  const isWavePage = /\/active_wave\.php$/i.test(path);
+  const isOlympusMap = /\/olympus\.php$/i.test(path);
+  if (!isWavePage && !isOlympusMap) return;
+
+  const params = new URLSearchParams(window.location.search || '');
+  const waveId = String(params.get('wave') || '');
+  const isOlympusPage =
+    isOlympusMap ||
+    params.get('gate') === '5' ||
+    /olympus/i.test(String(document.title || ''));
+  if (!isOlympusPage) return;
+
+  const SHOP_NPCS = [
+    { npc: 'damon', label: 'Damon', note: 'Potions' },
+    { npc: 'melanippe', label: 'Melanippe', note: 'Stable' },
+    { npc: 'brontes', label: 'Brontes', note: 'Forge' },
+    { npc: 'melinoe', label: 'Melinoe', note: 'Eggs' }
+  ];
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[ch]));
+  }
+
+  function cssEscape(value) {
+    if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(String(value));
+    return String(value).replace(/["\\]/g, '\\$&');
+  }
+
+  function ensureStyles() {
+    if (document.getElementById('tmOlympusShortcutsStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'tmOlympusShortcutsStyles';
+    style.textContent = `
+      .tm-olympus-shop-panel{
+        margin:14px auto;
+        width:min(980px, calc(100vw - 24px));
+        box-sizing:border-box;
+        border:1px solid rgba(255,255,255,.12);
+        border-radius:12px;
+        background:rgba(16,18,29,.92);
+        color:#e8ebff;
+        padding:12px;
+        box-shadow:0 14px 34px rgba(0,0,0,.24);
+      }
+      .tm-olympus-shop-panel h3{
+        margin:0 0 9px;
+        font-size:15px;
+        color:#ffd369;
+      }
+      .tm-olympus-shop-actions{
+        display:flex;
+        gap:9px;
+        flex-wrap:wrap;
+      }
+      .tm-olympus-shop-actions button{
+        cursor:pointer;
+        border:1px solid rgba(255,255,255,.14);
+        border-radius:10px;
+        background:rgba(255,255,255,.08);
+        color:#fff;
+        padding:8px 10px;
+        font-weight:800;
+      }
+      .tm-olympus-shop-actions button small{
+        display:block;
+        color:#aeb5d2;
+        font-size:11px;
+        font-weight:600;
+      }
+      .tm-olympus-shop-actions button:disabled{
+        cursor:not-allowed;
+        opacity:.45;
+      }
+      @media(max-width:620px){
+        .tm-olympus-shop-panel{
+          width:calc(100vw - 16px);
+          margin:10px auto;
+          border-radius:10px;
+        }
+        .tm-olympus-shop-actions button{
+          flex:1 1 135px;
+        }
+      }
+      .waves-nav .tm-olympus-map-chip{
+        margin-left:auto;
+        opacity:.72;
+      }
+      .waves-nav .tm-olympus-map-chip:hover,
+      .waves-nav .tm-olympus-map-chip.active{
+        opacity:1;
+      }
+      @media(max-width:620px){
+        .waves-nav .tm-olympus-map-chip{
+          margin-left:0;
+          flex-basis:100%;
+          text-align:center;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function makeChip(label, href, active, extraClass) {
+    const chip = document.createElement('a');
+    chip.className = `wave-chip tm-olympus-chip${extraClass ? ` ${extraClass}` : ''}${active ? ' active' : ''}`;
+    chip.href = href;
+    chip.textContent = label;
+    chip.dataset.tmOlympusShortcut = '1';
+    return chip;
+  }
+
+  function replaceInvadeChip() {
+    const nav = document.querySelector('.waves-nav');
+    if (!nav || nav.dataset.tmOlympusShortcuts === '1') return;
+
+    const invade = Array.from(nav.querySelectorAll('a.wave-chip')).find((link) => {
+      const text = String(link.textContent || '').trim();
+      const href = String(link.getAttribute('href') || '');
+      return /invade\s+olympus/i.test(text) || /(^|\/)olympus\.php(?:$|[?#])/i.test(href);
+    });
+    if (!invade) return;
+
+    const shops = makeChip('Shops', 'merchant.php', /\/merchant\.php$/i.test(path));
+    const hermes = makeChip('Hermes', 'active_wave.php?gate=5&wave=10', waveId === '10');
+    const artemis = makeChip('Artemis', 'active_wave.php?gate=5&wave=11', waveId === '11');
+    const map = makeChip('Invade Olympus', 'olympus.php', isOlympusMap, 'tm-olympus-map-chip');
+
+    invade.replaceWith(shops, hermes, artemis, map);
+    nav.dataset.tmOlympusShortcuts = '1';
+  }
+
+  function findShopPanelAnchor() {
+    return (
+      document.querySelector('.olympus-shell') ||
+      document.querySelector('main') ||
+      document.querySelector('.container') ||
+      document.body
+    );
+  }
+
+  function ensureShopPanel() {
+    if (!isOlympusMap || !/^#(?:tm-)?shops$/i.test(window.location.hash || '') || document.getElementById('tmOlympusShopPanel')) return;
+
+    const panel = document.createElement('section');
+    panel.id = 'tmOlympusShopPanel';
+    panel.className = 'tm-olympus-shop-panel';
+    panel.innerHTML = `
+      <h3>Olympus Shops</h3>
+      <div class="tm-olympus-shop-actions">
+        ${SHOP_NPCS.map((shop) => {
+          const marker = document.querySelector(`.npc-marker[data-npc="${cssEscape(shop.npc)}"]`);
+          return `
+            <button type="button" data-npc-target="${escapeHtml(shop.npc)}"${marker ? '' : ' disabled'}>
+              ${escapeHtml(shop.label)}
+              <small>${escapeHtml(marker ? shop.note : 'Not available')}</small>
+            </button>
+          `;
+        }).join('')}
+      </div>
+    `;
+
+    panel.addEventListener('click', (event) => {
+      const btn = event.target instanceof Element ? event.target.closest('button[data-npc-target]') : null;
+      if (!btn || btn.disabled) return;
+      const npc = btn.getAttribute('data-npc-target');
+      const marker = npc ? document.querySelector(`.npc-marker[data-npc="${cssEscape(npc)}"]`) : null;
+      if (marker instanceof HTMLElement) marker.click();
+    });
+
+    const anchor = findShopPanelAnchor();
+    if (anchor === document.body) document.body.prepend(panel);
+    else anchor.prepend(panel);
+
+    if (/^#(?:tm-)?shops$/i.test(window.location.hash || '')) {
+      window.setTimeout(() => {
+        try { panel.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+        catch (e) { panel.scrollIntoView(); }
+      }, 120);
+    }
+  }
+
+  function init() {
+    ensureStyles();
+    replaceInvadeChip();
+    ensureShopPanel();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
+
+  window.setTimeout(init, 400);
+})();
+
+
 // ============================================================
 // Module: Shadowbridge Warrens Monster Board (shadowbridge-warrens-monsters.user.js)
 // ============================================================
@@ -4165,6 +4383,8 @@
   let cubeJumpStatusGroups = [];
   let cubeJumpStatusBoards = new Map();
 
+  startDungeonPrehide();
+
   function startOnce() {
     if (started) return;
     if (!isMainDungeonPage()) return;
@@ -4194,6 +4414,65 @@
         mo = null;
       }
     }, 12000);
+  }
+
+  function startDungeonPrehide() {
+    if (isCubePath()) return;
+
+    injectPrehideStyles();
+
+    const apply = () => {
+      const mapPanels = Array.from(document.querySelectorAll('.mapframe'))
+        .map((mapframe) => mapframe.closest('.panel'))
+        .filter((panel) => panel && panel.querySelector('a.pin[href*="guild_dungeon_location.php"]'));
+
+      for (const panel of mapPanels) {
+        panel.classList.add('tm-sbw-hidden-map-panel', 'tm-sbw-prehidden-map-panel');
+        panel.setAttribute('aria-hidden', 'true');
+
+        const previous = panel.previousElementSibling;
+        if (isDungeonOverviewPanel(previous)) {
+          previous.classList.add('tm-sbw-hidden-dungeon-overview', 'tm-sbw-prehidden-dungeon-overview');
+          previous.setAttribute('aria-hidden', 'true');
+        }
+      }
+
+      for (const panel of Array.from(document.querySelectorAll('.panel'))) {
+        if (isDungeonOverviewPanel(panel)) {
+          panel.classList.add('tm-sbw-hidden-dungeon-overview', 'tm-sbw-prehidden-dungeon-overview');
+          panel.setAttribute('aria-hidden', 'true');
+        }
+      }
+    };
+
+    apply();
+    const prehideObserver = new MutationObserver(apply);
+    prehideObserver.observe(document.documentElement, { childList: true, subtree: true });
+    window.setTimeout(() => {
+      try { prehideObserver.disconnect(); } catch {}
+    }, 12000);
+  }
+
+  function injectPrehideStyles() {
+    const id = `${STYLE_ID}-prehide`;
+    if (document.getElementById(id)) return;
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = `
+      .tm-sbw-prehidden-map-panel,
+      .tm-sbw-prehidden-dungeon-overview{
+        display:none !important;
+      }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function isDungeonOverviewPanel(panel) {
+    if (!(panel instanceof HTMLElement) || panel.id === PANEL_ID) return false;
+    const tags = Array.from(panel.querySelectorAll('.tag')).map((tag) => cleanText(tag.textContent));
+    return tags.some((text) => /^Locations:/i.test(text))
+      && tags.some((text) => /^Monsters:/i.test(text))
+      && tags.some((text) => /^Left:/i.test(text));
   }
 
   function getSavedCardSize() {
@@ -4253,6 +4532,7 @@
     }
 
     const board = createBoardShell(pins.length);
+    board.classList.toggle('tm-sbw-minimal-controls', isDungeonTwoPage());
     mapPanel.insertAdjacentElement('afterend', board);
 
     const locations = await Promise.all(
@@ -4268,11 +4548,53 @@
     );
 
     renderBoard(board, mapWrap, locations);
+    hideDungeonOverviewPanel(mapPanel);
+    hideDungeonMapPanel(mapPanel);
+  }
+
+  function hideDungeonOverviewPanel(mapPanel) {
+    if (isCubePage()) return;
+    const candidates = [
+      mapPanel?.previousElementSibling,
+      ...Array.from(document.querySelectorAll('.panel'))
+    ].filter(Boolean);
+
+    const overviewPanel = candidates.find((panel) => isDungeonOverviewPanel(panel));
+
+    if (!overviewPanel) return;
+    overviewPanel.classList.add('tm-sbw-hidden-dungeon-overview');
+    overviewPanel.setAttribute('aria-hidden', 'true');
+  }
+
+  function hideDungeonMapPanel(mapPanel) {
+    if (!mapPanel || isCubePage()) return;
+    mapPanel.classList.add('tm-sbw-hidden-map-panel');
+    mapPanel.setAttribute('aria-hidden', 'true');
   }
 
   function isCubePage() {
+    if (isCubePath() && (!!document.getElementById('nodeTableView') || !!getCubeState()?.nodes)) return true;
+    return false;
+  }
+
+  function isCubePath() {
     const path = String(window.location.pathname || '').toLowerCase();
-    return path.includes('guild_dungeon_cube.php') && (!!document.getElementById('nodeTableView') || !!getCubeState()?.nodes);
+    return path.includes('guild_dungeon_cube.php');
+  }
+
+  function isDungeonTwoPage() {
+    const idFromUrl = new URLSearchParams(window.location.search).get('id')
+      || new URLSearchParams(window.location.search).get('dungeon_id');
+    if (String(idFromUrl || '') === '2') return true;
+
+    const infoLink = Array.from(document.querySelectorAll('a[href*="dungeon_info.php"]')).find((link) => {
+      try {
+        return new URL(link.getAttribute('href') || '', window.location.origin).searchParams.get('id') === '2';
+      } catch (_error) {
+        return false;
+      }
+    });
+    return !!infoLink;
   }
 
   async function initCubeBoard() {
@@ -4285,9 +4607,13 @@
     let board = document.getElementById(PANEL_ID);
     if (!board) {
       board = createCubeBoardShell();
+      board.classList.add('tm-sbw-minimal-controls');
       tableView.insertAdjacentElement('afterend', board);
     } else if (board.parentElement !== stage) {
+      board.classList.add('tm-sbw-minimal-controls');
       tableView.insertAdjacentElement('afterend', board);
+    } else {
+      board.classList.add('tm-sbw-minimal-controls');
     }
 
     const render = () => loadAndRenderCubeBoard(board).catch((error) => {
@@ -7005,8 +7331,24 @@
         padding-bottom: 0 !important;
         margin-bottom: 0 !important;
       }
+      body.tm-sbw-map-page .tm-sbw-hidden-map-panel{
+        display: none !important;
+      }
+      body.tm-sbw-map-page .tm-sbw-hidden-dungeon-overview{
+        display: none !important;
+      }
       .tm-sbw-board {
-        margin-top: 14px;
+        margin-top: 0;
+      }
+      .tm-sbw-board.tm-sbw-minimal-controls .tm-sbw-refresh,
+      .tm-sbw-board.tm-sbw-minimal-controls .tm-sbw-select-actions,
+      .tm-sbw-board.tm-sbw-minimal-controls [data-role="attack-strat-run"],
+      .tm-sbw-board.tm-sbw-minimal-controls .tm-sbw-tools,
+      .tm-sbw-board.tm-sbw-minimal-controls .tm-sbw-model-line,
+      .tm-sbw-board.tm-sbw-minimal-controls .attack-strat-overlay,
+      .tm-sbw-board.tm-sbw-minimal-controls [data-role="cube-select-pve"],
+      .tm-sbw-board.tm-sbw-minimal-controls [data-role="cube-clear-pve"]{
+        display: none !important;
       }
       .tm-sbw-head {
         display: flex;
@@ -8494,7 +8836,7 @@
       if (clickIfPossible(autoBtn, 'Enabling Auto Play...')) {
         queueNext(ACTION_GAP_MS);
         return;
-      }a
+      }
     }
 
     if (autoPlayEnabled()) setStatus('Auto Play running...');
