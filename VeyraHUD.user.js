@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.23.2
+// @version      0.3.23.15
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -31,13 +31,396 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.23.2',
+      version: '0.3.23.15',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.23.2'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.23.2');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.23.15'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.23.15');
   } catch (e) {
     // ignore
+  }
+})();
+
+// ---- Pet link race-bonus stat correction ----
+(function(){
+  'use strict';
+
+  const path = String(window.location.pathname || '').toLowerCase();
+  const isPetsPage = /\/pets(?:\.php)?$/i.test(path);
+  const isStatsPage = /\/stats(?:\.php)?$/i.test(path);
+  const shouldRun = isPetsPage || isStatsPage;
+  if (!shouldRun || window.__tmPetLinkShareFixInstalled) return;
+  window.__tmPetLinkShareFixInstalled = true;
+
+  function parseNumber(value) {
+    const num = Number(String(value ?? '').replace(/,/g, ''));
+    return Number.isFinite(num) ? num : 0;
+  }
+
+  function parseSharePct(link) {
+    const label = String(link?.share_pct_label ?? link?.share_pct ?? link?.share_percent ?? '');
+    const match = label.match(/(\d+(?:\.\d+)?)\s*%/);
+    const parsed = match ? Number(match[1]) : NaN;
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    const level = Number(link?.link_level || 0);
+    if (level === 1) return 50;
+    if (level === 2) return 25;
+    return 0;
+  }
+
+  function actualSharePct(link) {
+    const level = Number(link?.link_level || 0);
+    const shown = parseSharePct(link);
+    if (level === 1 && shown > 50) return 50;
+    if (level === 2 && shown > 25) return 25;
+    if (level === 1) return 50;
+    if (level === 2) return 25;
+    return shown;
+  }
+
+  function correctedShareValue(value, shownPct, actualPct) {
+    const num = parseNumber(value);
+    if (!num || !shownPct || !actualPct || shownPct === actualPct) return num;
+    return Math.round(num * (actualPct / shownPct));
+  }
+
+  function getPetBaseStat(pet, statName, updatedValue, linkedShownTotal) {
+    const keyOptions = statName === 'attack'
+      ? ['base_attack', 'original_attack', 'raw_attack', 'attack']
+      : ['base_defense', 'original_defense', 'raw_defense', 'defense'];
+    for (const key of keyOptions) {
+      const value = parseNumber(pet?.[key]);
+      if (value > 0) return value;
+    }
+    return Math.max(0, parseNumber(updatedValue) - parseNumber(linkedShownTotal));
+  }
+
+  function correctEffectText(value) {
+    return String(value || '')
+      .replace(/Shares\s+50\s*%\s*\(or\s*60\s*(?:%|％|percent)\s*same race\)/gi, 'Shares 50%')
+      .replace(/Shares\s+25\s*%\s*\(or\s*35\s*(?:%|％|percent)\s*same race\)/gi, 'Shares 25%')
+      .replace(/60\s*(?:%|％|percent)/gi, '50%')
+      .replace(/35\s*(?:%|％|percent)/gi, '25%');
+  }
+  try { window.__tmCorrectPetLinkEffectText = correctEffectText; } catch (e) {}
+
+  function correctAllPetLinkStrings(value, depth = 0) {
+    if (depth > 8 || value == null) return value;
+    if (typeof value === 'string') return correctEffectText(value);
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => {
+        value[index] = correctAllPetLinkStrings(item, depth + 1);
+      });
+      return value;
+    }
+    if (typeof value === 'object') {
+      Object.keys(value).forEach((key) => {
+        value[key] = correctAllPetLinkStrings(value[key], depth + 1);
+      });
+    }
+    return value;
+  }
+
+  function formatScaledEffectNumber(value, ratio) {
+    const num = Number(value);
+    if (!Number.isFinite(num) || !Number.isFinite(ratio) || ratio <= 0 || ratio === 1) return value;
+    const scaled = num * ratio;
+    const decimals = String(value).includes('.') ? Math.min(10, Math.max(2, String(value).split('.')[1].length)) : 2;
+    return String(Number(scaled.toFixed(decimals)));
+  }
+
+  function scaleLinkedEffectText(value, shownPct, actualPct) {
+    if (!value || !shownPct || !actualPct || shownPct === actualPct) return correctEffectText(value);
+    const ratio = actualPct / shownPct;
+    return correctEffectText(String(value))
+      .replace(/(\bby\s+)([-+]?\d+(?:\.\d+)?)(\s*(?:%|percent|of\b))/gi, (_all, prefix, num, suffix) => `${prefix}${formatScaledEffectNumber(num, ratio)}${suffix}`)
+      .replace(/(\bup\s+to\s+)([-+]?\d+(?:\.\d+)?)(\s*x\b)/gi, (_all, prefix, num, suffix) => `${prefix}${formatScaledEffectNumber(num, ratio)}${suffix}`)
+      .replace(/(\bincrease\s+[^.\n]{0,120}?\s+)([-+]?\d+\.\d+)(\s+of\b)/gi, (_all, prefix, num, suffix) => `${prefix}${formatScaledEffectNumber(num, ratio)}${suffix}`);
+  }
+
+  function correctPetLinkPayload(data) {
+    if (!data || data.status !== 'success' || !data.pet || !Array.isArray(data.links)) return correctAllPetLinkStrings(data);
+
+    let shownAttack = 0;
+    let shownDefense = 0;
+    let realAttack = 0;
+    let realDefense = 0;
+    data.links.forEach((link) => {
+      const shownPct = parseSharePct(link);
+      const actualPct = actualSharePct(link);
+      const addAttack = parseNumber(link.add_attack);
+      const addDefense = parseNumber(link.add_defense);
+      const fixedAttack = correctedShareValue(addAttack, shownPct, actualPct);
+      const fixedDefense = correctedShareValue(addDefense, shownPct, actualPct);
+
+      shownAttack += addAttack;
+      shownDefense += addDefense;
+      realAttack += fixedAttack;
+      realDefense += fixedDefense;
+
+      link.add_attack = fixedAttack;
+      link.add_defense = fixedDefense;
+      link.share_pct_label = actualPct ? `${actualPct}%` : String(link.share_pct_label || '');
+      if ('share_pct' in link) link.share_pct = actualPct;
+      if ('share_percent' in link) link.share_percent = actualPct;
+      if (typeof link.effect_text === 'string') link.effect_text = scaleLinkedEffectText(link.effect_text, shownPct, actualPct);
+    });
+
+    const pet = data.pet;
+    const baseAttack = getPetBaseStat(pet, 'attack', pet.updated_attack, shownAttack);
+    const baseDefense = getPetBaseStat(pet, 'defense', pet.updated_defense, shownDefense);
+    pet.base_attack = baseAttack;
+    pet.base_defense = baseDefense;
+    pet.updated_attack = Math.max(0, baseAttack + realAttack);
+    pet.updated_defense = Math.max(0, baseDefense + realDefense);
+
+    if (typeof data.pet.total_effect_text === 'string') {
+      data.pet.total_effect_text = correctEffectText(data.pet.total_effect_text);
+    }
+
+    return correctAllPetLinkStrings(data);
+  }
+
+  function makeJsonResponse(response, data) {
+    const headers = new Headers(response.headers);
+    headers.set('content-type', 'application/json; charset=utf-8');
+    return new Response(JSON.stringify(data), {
+      status: response.status,
+      statusText: response.statusText,
+      headers
+    });
+  }
+
+  const nativeFetch = window.fetch;
+  if (typeof nativeFetch === 'function') {
+    window.fetch = async function(input, init) {
+      const response = await nativeFetch.call(this, input, init);
+      let url = '';
+      try {
+        url = typeof input === 'string' ? input : String(input?.url || '');
+      } catch (e) {
+        url = '';
+      }
+      if (!/pet_links_ajax\.php/i.test(url)) return response;
+
+      const data = await response.clone().json().catch(() => null);
+      if (!data) return response;
+      return makeJsonResponse(response, correctPetLinkPayload(data));
+    };
+  }
+
+  function applyPetCardTotals(petInvId, data) {
+    const pet = data?.pet || {};
+    const atk = parseNumber(pet.updated_attack);
+    const def = parseNumber(pet.updated_defense);
+    const baseAtk = parseNumber(pet.base_attack);
+    const baseDef = parseNumber(pet.base_defense);
+    const effectText = String(pet.total_effect_text || '');
+    if (!petInvId || (!atk && !def)) return;
+
+    document.querySelectorAll(`.slot-box[data-pet-inv-id="${String(petInvId).replace(/"/g, '\\"')}"]`).forEach((card) => {
+      if (isInventoryPetCard(card)) return;
+      const equipped = isEquippedPetCard(card);
+      const atkEl = card.querySelector('[data-attack]');
+      const defEl = card.querySelector('[data-defense]');
+      if (atkEl) atkEl.textContent = String(equipped ? atk : (baseAtk || atk));
+      if (defEl) defEl.textContent = String(equipped ? def : (baseDef || def));
+
+      const powerEl = card.querySelector('[data-power]');
+      if (equipped && powerEl && effectText) {
+        if (!powerEl.dataset.tmOriginalPowerText) powerEl.dataset.tmOriginalPowerText = powerEl.textContent || '';
+        powerEl.textContent = `⚡ ${effectText}`;
+        powerEl.dataset.tmLinkedTotalPower = '1';
+        powerEl.style.display = '';
+      } else if (!equipped && powerEl?.dataset.tmLinkedTotalPower === '1') {
+        powerEl.textContent = powerEl.dataset.tmOriginalPowerText || '';
+        delete powerEl.dataset.tmLinkedTotalPower;
+      }
+      normalizePetCardSpacing(card);
+    });
+  }
+
+  function normalizePetCardSpacing(root = document) {
+    if (!isPetsPage || !root) return;
+    ensurePetCardSpacingStyles();
+    const cards = root.matches?.('.slot-box, .pet-card') ? [root] : Array.from(root.querySelectorAll?.('.slot-box.pet-card, .pet-card') || []);
+    cards.forEach((card) => {
+      if (isInventoryPetCard(card)) return;
+      if (card instanceof HTMLElement) {
+        card.style.alignSelf = 'flex-start';
+        card.style.height = 'auto';
+      }
+      card.querySelectorAll?.('[data-power], .pet-power').forEach((powerEl) => {
+        if (!(powerEl instanceof HTMLElement)) return;
+        const meaningfulText = String(powerEl.textContent || '')
+          .replace(/^[^A-Za-z0-9%+.-]+/, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (!meaningfulText) {
+          powerEl.classList.add('tm-pet-empty-row');
+          powerEl.style.display = 'none';
+          powerEl.style.marginTop = '0';
+          powerEl.style.marginBottom = '0';
+        } else {
+          powerEl.classList.remove('tm-pet-empty-row');
+          powerEl.style.display = '';
+          if (powerEl.style.marginTop === '0px' || powerEl.style.marginTop === '0') powerEl.style.marginTop = '6px';
+        }
+      });
+      card.querySelectorAll?.('.levelup-row, .pet-sigils-panel, .pet-sigils-grid').forEach((el) => {
+        if (!(el instanceof HTMLElement)) return;
+        const hasVisibleContent = Array.from(el.querySelectorAll('button, input, select, textarea, img, svg, canvas, a'))
+          .some((child) => child instanceof HTMLElement && child.offsetParent !== null && String(child.textContent || child.getAttribute('aria-label') || '').trim());
+        const text = String(el.textContent || '').replace(/\s+/g, ' ').trim();
+        if (!text && !hasVisibleContent) {
+          el.classList.add('tm-pet-empty-row');
+          el.style.display = 'none';
+          el.style.marginTop = '0';
+          el.style.marginBottom = '0';
+          el.style.paddingTop = '0';
+          el.style.paddingBottom = '0';
+        }
+      });
+    });
+  }
+
+  function ensurePetCardSpacingStyles() {
+    if (document.getElementById('tmPetCardSpacingFixStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'tmPetCardSpacingFixStyles';
+    style.textContent = `
+      body .tm-pet-empty-row{
+        display:none !important;
+        margin:0 !important;
+        padding:0 !important;
+        height:0 !important;
+        min-height:0 !important;
+        overflow:hidden !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function isInventoryPetCard(card) {
+    const section = card?.closest?.('.section, [data-section-key], section, .card, .panel');
+    const sectionText = String(section?.querySelector?.('.section-title, h1, h2, h3, h4')?.textContent || section?.getAttribute?.('data-section-key') || '');
+    return /inventory/i.test(sectionText) || !!card?.querySelector?.('button[onclick*="equipPet"], button[onclick*="showEquipModal"]');
+  }
+
+  function isEquippedPetCard(card) {
+    if (!card) return false;
+    if (card.querySelector('button[onclick*="unequipPet"]')) return true;
+    if (isInventoryPetCard(card)) return false;
+    const section = card.closest('.section, [data-section-key], section, .card, .panel');
+    const sectionText = String(section?.querySelector?.('.section-title, h1, h2, h3, h4')?.textContent || section?.getAttribute?.('data-section-key') || '');
+    return /\b(team|equipped|pve|pvp|attack|defense)\b/i.test(sectionText);
+  }
+
+  function correctPetLinkModalText() {
+    if (!isPetsPage) return;
+    const body = document.getElementById('linksModalBody');
+    if (!body || body.dataset.tmPetLinkShareTextFixed === body.innerHTML.length.toString()) return;
+
+    correctRenderedPetLinkText(body);
+    body.dataset.tmPetLinkShareTextFixed = body.innerHTML.length.toString();
+  }
+
+  function correctRenderedPetLinkText(root) {
+    if (!isPetsPage || !root) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+    textNodes.forEach((node) => {
+      const text = node.nodeValue || '';
+      const fixed = correctEffectText(text);
+      if (fixed !== text) node.nodeValue = fixed;
+    });
+  }
+
+  function correctVisiblePetLinkText() {
+    if (!isPetsPage) return;
+    const modal = document.getElementById('linksModalBody');
+    if (modal) correctRenderedPetLinkText(modal);
+    Array.from(document.querySelectorAll('.slot-box.pet-card, .pet-card'))
+      .filter((card) => !isInventoryPetCard(card))
+      .forEach((card) => correctRenderedPetLinkText(card));
+    document.querySelectorAll('#linksModalBody [data-power], #linksModalBody [data-effect], #linksModalBody [data-ability], #linksModalBody [data-passive], #linksModalBody [data-description], #linksModalBody [data-desc], #linksModalBody [data-text], #linksModalBody [data-content], #linksModalBody [data-bs-content], #linksModalBody [title], #linksModalBody [aria-label], #linksModalBody [onclick]').forEach((el) => {
+      if (!(el instanceof HTMLElement)) return;
+      Array.from(el.attributes || []).forEach((attr) => {
+        if (!/^(?:data-(?:power|effect|ability|passive|description|desc|text|content|bs-content)|title$|aria-label$|onclick$)/i.test(attr.name)) return;
+        const fixed = correctEffectText(attr.value);
+        if (fixed !== attr.value) el.setAttribute(attr.name, fixed);
+      });
+    });
+    normalizePetCardSpacing(document);
+  }
+
+  async function refreshVisibleLinkedPetCards() {
+    if (!isPetsPage) return;
+    const ids = Array.from(new Set(
+      Array.from(document.querySelectorAll('.slot-box.pet-card[data-pet-inv-id]'))
+        .filter((card) => !isInventoryPetCard(card) && !!card.querySelector('.linked-gold, [data-attack].linked-gold, [data-defense].linked-gold'))
+        .map((card) => String(card.getAttribute('data-pet-inv-id') || '').trim())
+        .filter(Boolean)
+    ));
+    if (!ids.length) return;
+
+    for (const petInvId of ids) {
+      try {
+        const response = await fetch(`pet_links_ajax.php?pet_inv_id=${encodeURIComponent(petInvId)}`, { cache: 'no-store' });
+        const data = await response.json().catch(() => null);
+        if (data?.status === 'success') applyPetCardTotals(petInvId, data);
+      } catch (e) {
+        // Leave the stock pet card alone if the link endpoint cannot be loaded.
+      }
+    }
+    correctVisiblePetLinkText();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      correctVisiblePetLinkText();
+      refreshVisibleLinkedPetCards();
+    }, { once: true });
+  } else {
+    correctVisiblePetLinkText();
+    refreshVisibleLinkedPetCards();
+  }
+
+  if (isPetsPage) {
+    let visibleFixTimer = 0;
+    const queueVisibleFix = () => {
+      window.clearTimeout(visibleFixTimer);
+      visibleFixTimer = window.setTimeout(correctVisiblePetLinkText, 50);
+    };
+
+    const observePetPageText = () => {
+      if (!document.body) return;
+      const observer = new MutationObserver(queueVisibleFix);
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+      correctVisiblePetLinkText();
+    };
+
+    const observeModal = () => {
+      const body = document.getElementById('linksModalBody');
+      if (!body) return;
+      const observer = new MutationObserver(() => {
+        correctPetLinkModalText();
+        correctVisiblePetLinkText();
+      });
+      observer.observe(body, { childList: true, subtree: true, characterData: true });
+      correctPetLinkModalText();
+      correctVisiblePetLinkText();
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        observePetPageText();
+        observeModal();
+      }, { once: true });
+    } else {
+      observePetPageText();
+      observeModal();
+    }
   }
 })();
 
@@ -91,6 +474,17 @@
       .replace(/^[^A-Za-z0-9%+.-]+/, '')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  function cleanPetLinkAbilityText(value) {
+    const text = cleanAbilityText(value);
+    const fixer = window.__tmCorrectPetLinkEffectText;
+    if (typeof fixer === 'function') return cleanAbilityText(fixer(text));
+    return text
+      .replace(/Shares\s+50\s*%\s*\(or\s*60\s*(?:%|％|percent)\s*same race\)/gi, 'Shares 50%')
+      .replace(/Shares\s+25\s*%\s*\(or\s*35\s*(?:%|％|percent)\s*same race\)/gi, 'Shares 25%')
+      .replace(/60\s*(?:%|％|percent)/gi, '50%')
+      .replace(/35\s*(?:%|％|percent)/gi, '25%');
   }
 
   function ensureStyles() {
@@ -297,7 +691,7 @@
         String(pet.querySelector('.info-btn')?.getAttribute('data-name') || '').trim() ||
         String(pet.querySelector('img[alt]')?.getAttribute('alt') || '').trim() ||
         `Pet #${id || acc.count + 1}`;
-      const ability = cleanAbilityText(pet.querySelector('[data-power]')?.textContent);
+      const ability = cleanPetLinkAbilityText(pet.querySelector('[data-power]')?.textContent);
       acc.attack += atk;
       acc.defense += def;
       if (atk || def) {
@@ -543,14 +937,14 @@
         pet.defense = updatedDefense;
       }
 
-      const totalEffect = cleanAbilityText(linkedPet.total_effect_text);
+      const totalEffect = cleanPetLinkAbilityText(linkedPet.total_effect_text);
       if (totalEffect) pet.ability = totalEffect;
 
       pet.links = Array.isArray(data.links)
         ? data.links.map((link) => ({
           level: parseNumberText(link.link_level),
           name: String(link.name || link.pet_name || link.link_pet_name || `Linked Pet #${link.link_pet_id || ''}`).trim(),
-          ability: cleanAbilityText(link.effect_text)
+          ability: cleanPetLinkAbilityText(link.effect_text)
         })).filter((link) => link.name || link.ability)
         : [];
     }));
@@ -570,13 +964,13 @@
         ${details.map((pet) => `
           <div class="tm-stat-pet-ability">
             <b>${escapeHtml(pet.name || 'Pet')}</b>
-            <p>${escapeHtml(pet.ability || 'No ability text found.')}</p>
+            <p>${escapeHtml(cleanPetLinkAbilityText(pet.ability) || 'No ability text found.')}</p>
             ${Array.isArray(pet.links) && pet.links.length ? `
               <div class="tm-stat-pet-links">
                 ${pet.links.map((link) => `
                   <div class="tm-stat-pet-link">
                     <span>Link ${escapeHtml(link.level || '?')}:</span>
-                    ${escapeHtml(link.name || 'Linked pet')} - ${escapeHtml(link.ability || 'No ability text found.')}
+                    ${escapeHtml(link.name || 'Linked pet')} - ${escapeHtml(cleanPetLinkAbilityText(link.ability) || 'No ability text found.')}
                   </div>
                 `).join('')}
               </div>
@@ -824,7 +1218,7 @@
 (function(){
   'use strict';
 
-  const APP_VERSION = '0.3.23.2';
+  const APP_VERSION = '0.3.23.15';
   const VERSION = '0.3.23';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
