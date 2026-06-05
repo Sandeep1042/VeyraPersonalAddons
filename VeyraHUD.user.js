@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.24.9
+// @version      0.3.24.14
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -31,11 +31,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.24.9',
+      version: '0.3.24.14',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.24.9'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.24.9');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.24.14'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.24.14');
   } catch (e) {
     // ignore
   }
@@ -438,6 +438,7 @@
     { key: 'pvp_attack', title: 'PvP Attack Set', note: 'Current PvP attack equipment' },
     { key: 'defense', title: 'PvP Defense Set', note: 'Current PvP defense equipment' }
   ];
+  const PET_LINK_ENABLED_SETS = new Set(['attack']);
   let classPassiveState = { loading: true, className: '', passive: '', error: '' };
 
   function readNumber(id) {
@@ -541,6 +542,45 @@
         margin:-2px 0 8px;
         min-height:28px;
       }
+      .tm-stat-element-box{
+        margin:10px 0;
+        padding:9px;
+        border:1px solid #303449;
+        border-radius:8px;
+        background:#181a25;
+        text-align:left;
+      }
+      .tm-stat-element-title{
+        color:#ffd369;
+        font-size:12px;
+        font-weight:800;
+        margin-bottom:7px;
+      }
+      .tm-stat-element-chips{
+        display:flex;
+        flex-wrap:wrap;
+        gap:6px;
+      }
+      .tm-stat-element-chip{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:24px;
+        padding:4px 8px;
+        border-radius:999px;
+        border:1px solid #3b415a;
+        background:#202437;
+        color:#e9ecff;
+        font-size:12px;
+        font-weight:800;
+        line-height:1.2;
+      }
+      .tm-stat-element-note{
+        margin-top:6px;
+        color:#9aa0be;
+        font-size:11px;
+        line-height:1.35;
+      }
       .tm-stat-pet-abilities{
         display:flex;
         flex-direction:column;
@@ -622,6 +662,172 @@
     return Number.isFinite(num) ? num : 0;
   }
 
+  function normalizeEquipmentName(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  function normalizeElementName(value) {
+    const clean = String(value || '')
+      .replace(/\([^)]*\)/g, '')
+      .replace(/[^a-z0-9 _-]/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!clean || /^none$/i.test(clean)) return '';
+    return clean
+      .split(/[\s_-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
+  }
+
+  function getEquipmentName(item) {
+    return String(
+      item.querySelector('.info-btn')?.getAttribute('data-name') ||
+      item.querySelector('img[alt]')?.getAttribute('alt') ||
+      ''
+    ).trim();
+  }
+
+  function inferElementFromItemIdentity(item) {
+    const elementNames = [
+      'fire', 'water', 'earth', 'wind', 'void', 'light', 'dark', 'ice',
+      'lightning', 'thunder', 'holy', 'shadow', 'arcane', 'nature', 'poison'
+    ];
+    const text = [
+      getEquipmentName(item),
+      item.querySelector('img')?.getAttribute('src'),
+      item.querySelector('img')?.getAttribute('alt'),
+      item.getAttribute('class')
+    ].join(' ').toLowerCase();
+
+    for (const name of elementNames) {
+      if (new RegExp(`(?:^|[^a-z])${name}(?:[^a-z]|$)`, 'i').test(text)) {
+        return normalizeElementName(name === 'thunder' ? 'Lightning' : name);
+      }
+    }
+    return '';
+  }
+
+  function extractEquipmentElement(item) {
+    const attrSources = [
+      item.getAttribute('data-element'),
+      item.getAttribute('data-ele'),
+      item.querySelector('[data-element]')?.getAttribute('data-element'),
+      item.querySelector('.info-btn')?.getAttribute('data-element')
+    ];
+    for (const value of attrSources) {
+      const element = normalizeElementName(value);
+      if (element) return element;
+    }
+
+    const textSources = [
+      item.querySelector('.info-btn')?.getAttribute('data-desc'),
+      item.querySelector('.info-btn')?.getAttribute('title'),
+      item.textContent
+    ];
+    for (const value of textSources) {
+      const match = String(value || '').match(/Element\s*:\s*([A-Za-z0-9 _-]+)/i);
+      const element = normalizeElementName(match?.[1]);
+      if (element) return element;
+    }
+
+    return inferElementFromItemIdentity(item);
+  }
+
+  function extractPetElement(pet) {
+    const attrSources = [
+      pet?.getAttribute?.('data-element'),
+      pet?.getAttribute?.('data-pet-element'),
+      pet?.querySelector?.('[data-element]')?.getAttribute('data-element'),
+      pet?.querySelector?.('.pet-element-name')?.textContent
+    ];
+    for (const value of attrSources) {
+      const element = normalizeElementName(value);
+      if (element) return element;
+    }
+
+    const textSources = [
+      pet?.querySelector?.('.info-btn')?.getAttribute('data-desc'),
+      pet?.querySelector?.('[data-power]')?.textContent,
+      pet?.textContent
+    ];
+    for (const value of textSources) {
+      const match = String(value || '').match(/(?:Elemental Power|Element)\s*:\s*([A-Za-z0-9 _-]+)/i);
+      const element = normalizeElementName(match?.[1]);
+      if (element) return element;
+    }
+
+    return '';
+  }
+
+  function extractPetLinkElement(link) {
+    return normalizeElementName(
+      link?.element ||
+      link?.pet_element ||
+      link?.elemental_power ||
+      link?.element_name ||
+      ''
+    );
+  }
+
+  function addElementCount(elements, element) {
+    const name = normalizeElementName(element);
+    if (!name) return;
+    elements[name] = (elements[name] || 0) + 1;
+  }
+
+  function buildEquipmentElementLookup(doc) {
+    const lookup = new Map();
+    Array.from(doc.querySelectorAll('.slot-box[data-equip="1"]')).forEach((item) => {
+      const name = normalizeEquipmentName(getEquipmentName(item));
+      const element = extractEquipmentElement(item);
+      if (!name || !element) return;
+      if (!lookup.has(name)) lookup.set(name, []);
+      lookup.get(name).push(element);
+    });
+    return lookup;
+  }
+
+  function resolveEquipmentElement(item, elementLookup) {
+    const direct = extractEquipmentElement(item);
+    if (direct) return direct;
+
+    const name = normalizeEquipmentName(getEquipmentName(item));
+    if (!name || !elementLookup?.has(name)) return '';
+    const matches = elementLookup.get(name);
+    return matches?.[0] || '';
+  }
+
+  function formatElementCounts(elements) {
+    const entries = Object.entries(elements || {}).filter(([, count]) => Number(count) > 0);
+    if (!entries.length) return 'None';
+    return entries
+      .sort((a, b) => Number(b[1]) - Number(a[1]) || a[0].localeCompare(b[0]))
+      .map(([name, count]) => `${escapeHtml(name)} x${fmt.format(count)}`)
+      .join(', ');
+  }
+
+  function renderElementSummary(equipment) {
+    const entries = Object.entries(equipment?.elements || {})
+      .filter(([, count]) => Number(count) > 0)
+      .sort((a, b) => Number(b[1]) - Number(a[1]) || a[0].localeCompare(b[0]));
+    if (!entries.length) return '';
+    const chips = entries
+      .map(([name, count]) => `<span class="tm-stat-element-chip">${escapeHtml(name)} x${fmt.format(count)}</span>`)
+      .join('');
+    const count = Number(equipment?.count || 0);
+
+    return `
+      <div class="tm-stat-element-box">
+        <div class="tm-stat-element-title">${escapeHtml(equipment?.title || 'Elements')}</div>
+        <div class="tm-stat-element-chips">
+          ${chips}
+        </div>
+        ${count ? `<div class="tm-stat-element-note">${fmt.format(count)} ${escapeHtml(equipment?.itemLabel || 'item')}${count === 1 ? '' : 's'} checked for this set.</div>` : ''}
+      </div>
+    `;
+  }
+
   function parseEquippedItemStats(item) {
     const dataAtk = item.getAttribute('data-atk');
     const dataDef = item.getAttribute('data-def');
@@ -648,6 +854,7 @@
       Array.from(doc.querySelectorAll('.section')).find((section) => /equipped items/i.test(section.textContent || ''));
 
     const scope = equippedSection || doc;
+    const elementLookup = buildEquipmentElementLookup(doc);
     const itemSelector = equippedSection
       ? '.slot-box'
       : '.slot-box[data-equip="1"][data-atk][data-def]';
@@ -659,17 +866,47 @@
 
     const totals = items.reduce((acc, item) => {
       const stats = parseEquippedItemStats(item);
+      const element = resolveEquipmentElement(item, elementLookup);
       acc.attack += stats.attack;
       acc.defense += stats.defense;
-      if (stats.attack || stats.defense) acc.count += 1;
+      if (stats.attack || stats.defense) {
+        acc.count += 1;
+        if (element) addElementCount(acc.elements, element);
+      }
       return acc;
-    }, { attack: 0, defense: 0, count: 0 });
+    }, { attack: 0, defense: 0, count: 0, elements: {} });
 
     totals.total = totals.attack + totals.defense;
     return totals;
   }
 
-  function parsePetDocument(doc) {
+  function readPetCardStats(pet) {
+    return {
+      attack: parseNumberText(pet?.querySelector('[data-attack]')?.textContent),
+      defense: parseNumberText(pet?.querySelector('[data-defense]')?.textContent)
+    };
+  }
+
+  function buildPetBaseStatLookup(doc) {
+    const lookup = new Map();
+    Array.from(doc.querySelectorAll('.pet-card[data-pet-inv-id]')).forEach((pet) => {
+      const id = parseNumberText(pet.getAttribute('data-pet-inv-id'));
+      if (!id) return;
+      const atkEl = pet.querySelector('[data-attack]');
+      const defEl = pet.querySelector('[data-defense]');
+      const hasLinkedStats = !!pet.querySelector('.linked-gold, [data-attack].linked-gold, [data-defense].linked-gold');
+      const stats = readPetCardStats(pet);
+      if (!stats.attack && !stats.defense) return;
+
+      const current = lookup.get(id);
+      if (!current || (current.hasLinkedStats && !hasLinkedStats)) {
+        lookup.set(id, { ...stats, hasLinkedStats });
+      }
+    });
+    return lookup;
+  }
+
+  function parsePetDocument(doc, includeLinks = true) {
     const sections = Array.from(doc.querySelectorAll('.section'));
     const equippedSection =
       sections.find((section) => {
@@ -679,27 +916,32 @@
       sections.find((section) => Array.from(section.querySelectorAll('.pet-card')).some((card) => card.querySelector('button[onclick*="unequipPet"]')));
 
     const scope = equippedSection || doc;
+    const baseStatLookup = includeLinks ? new Map() : buildPetBaseStatLookup(doc);
     const pets = Array.from(scope.querySelectorAll('.pet-card[data-pet-inv-id]'))
       .filter((pet) => !!pet.querySelector('button[onclick*="unequipPet"]') || !!equippedSection);
 
     const details = [];
     const totals = pets.reduce((acc, pet) => {
-      const atk = parseNumberText(pet.querySelector('[data-attack]')?.textContent);
-      const def = parseNumberText(pet.querySelector('[data-defense]')?.textContent);
       const id = parseNumberText(pet.getAttribute('data-pet-inv-id'));
+      const shownStats = readPetCardStats(pet);
+      const baseStats = baseStatLookup.get(id);
+      const atk = includeLinks ? shownStats.attack : Number(baseStats?.attack ?? shownStats.attack);
+      const def = includeLinks ? shownStats.defense : Number(baseStats?.defense ?? shownStats.defense);
       const name =
         String(pet.querySelector('.info-btn')?.getAttribute('data-name') || '').trim() ||
         String(pet.querySelector('img[alt]')?.getAttribute('alt') || '').trim() ||
         `Pet #${id || acc.count + 1}`;
       const ability = cleanPetLinkAbilityText(pet.querySelector('[data-power]')?.textContent);
+      const element = extractPetElement(pet);
       acc.attack += atk;
       acc.defense += def;
       if (atk || def) {
         acc.count += 1;
-        details.push({ id, name, attack: atk, defense: def, ability, links: [] });
+        addElementCount(acc.elements, element);
+        details.push({ id, name, attack: atk, defense: def, ability, element, links: [] });
       }
       return acc;
-    }, { attack: 0, defense: 0, count: 0 });
+    }, { attack: 0, defense: 0, count: 0, elements: {} });
 
     totals.total = totals.attack + totals.defense;
     totals.mainCount = totals.count;
@@ -740,8 +982,11 @@
 
     const html = await response.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    const totals = parsePetDocument(doc);
-    await hydratePetLinkDetails(totals);
+    const includeLinks = PET_LINK_ENABLED_SETS.has(setKey);
+    const totals = parsePetDocument(doc, includeLinks);
+    if (includeLinks) {
+      await hydratePetLinkDetails(totals);
+    }
     return totals;
   }
 
@@ -944,9 +1189,11 @@
         ? data.links.map((link) => ({
           level: parseNumberText(link.link_level),
           name: String(link.name || link.pet_name || link.link_pet_name || `Linked Pet #${link.link_pet_id || ''}`).trim(),
-          ability: cleanPetLinkAbilityText(link.effect_text)
+          ability: cleanPetLinkAbilityText(link.effect_text),
+          element: extractPetLinkElement(link)
         })).filter((link) => link.name || link.ability)
         : [];
+      pet.links.forEach((link) => addElementCount(totals.elements, link.element));
     }));
 
     totals.linkedCount = details.reduce((sum, pet) => sum + (Array.isArray(pet.links) ? pet.links.length : 0), 0);
@@ -981,6 +1228,17 @@
     `;
   }
 
+  function formatEquippedCount(equipment, pets) {
+    const mainPets = Number(pets?.mainCount || pets?.count || 0);
+    const linkedPets = Number(pets?.linkedCount || 0);
+    const parts = [
+      `${Number(equipment?.count || 0)} items`,
+      `${mainPets} main pets`
+    ];
+    if (linkedPets > 0) parts.push(`${linkedPets} linked pets`);
+    return parts.join(' + ');
+  }
+
   function renderSetCard(set, state) {
     const card = document.getElementById(`tmStatSetCard-${set.key}`);
     if (!card) return;
@@ -1004,8 +1262,8 @@
       return;
     }
 
-    const equipment = state.equipment || { attack: 0, defense: 0, total: 0, count: 0 };
-    const pets = state.pets || { attack: 0, defense: 0, total: 0, count: 0 };
+    const equipment = state.equipment || { attack: 0, defense: 0, total: 0, count: 0, elements: {} };
+    const pets = state.pets || { attack: 0, defense: 0, total: 0, count: 0, elements: {} };
     const combined = mergeTotals(equipment, pets);
 
     card.innerHTML = `
@@ -1017,10 +1275,12 @@
       <hr>
       ${makeRow('Equipment ATK', fmt.format(equipment.attack), pct(equipment.attack, combined.total))}
       ${makeRow('Equipment DEF', fmt.format(equipment.defense), pct(equipment.defense, combined.total))}
+      ${renderElementSummary({ title: 'Equipment Elements', itemLabel: 'equipped item', count: equipment.count, elements: equipment.elements })}
+      ${renderElementSummary({ title: 'Pet Elements', itemLabel: 'pet', count: pets.count, elements: pets.elements })}
       ${makeRow('Pet ATK', fmt.format(pets.attack), pct(pets.attack, combined.total))}
       ${makeRow('Pet DEF', fmt.format(pets.defense), pct(pets.defense, combined.total))}
       <hr>
-      ${makeRow('Equipped Count', fmt.format(combined.count), `${equipment.count} items + ${pets.mainCount || pets.count || 0} main pets + ${pets.linkedCount || 0} linked pets`)}
+      ${makeRow('Equipped Count', fmt.format(combined.count), formatEquippedCount(equipment, pets))}
       ${renderPetAbilities(pets)}
     `;
   }
@@ -1218,7 +1478,7 @@
 (function(){
   'use strict';
 
-  const APP_VERSION = '0.3.24.9';
+  const APP_VERSION = '0.3.24.14';
   const VERSION = '0.3.23';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
