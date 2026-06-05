@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Veyra HUD (All-in-One)
 // @namespace    https://demonicscans.org/
-// @version      0.3.23.15
+// @version      0.3.24.9
 // @description  All-in-one userscript: Emberfall Quest/Drops Helper, Graveyard multi-loot, Monster Board, Cube intro skipper, Solo PvP bot.
 // @icon         https://github.com/nobody65321/VeyraPersonalAddons/raw/refs/heads/main/VeyraHUD.icon.png
 // @match        *://demonicscans.org/*
@@ -31,11 +31,11 @@
   try {
     window.__VEYRA_HUD_AIO__ = {
       name: 'Veyra HUD (All-in-One)',
-      version: '0.3.23.15',
+      version: '0.3.24.9',
       builtAt: new Date().toISOString()
     };
-    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.23.15'; } catch (e) {}
-    console.log('[VeyraHUD AIO] loaded v0.3.23.15');
+    try { document.documentElement.dataset.veyrahudAioVersion = '0.3.24.9'; } catch (e) {}
+    console.log('[VeyraHUD AIO] loaded v0.3.24.9');
   } catch (e) {
     // ignore
   }
@@ -1218,7 +1218,7 @@
 (function(){
   'use strict';
 
-  const APP_VERSION = '0.3.23.15';
+  const APP_VERSION = '0.3.24.9';
   const VERSION = '0.3.23';
   const LS_KEY = 'tm_veyrahud_seen_version_v1';
 
@@ -2798,11 +2798,12 @@
   const FILTER_KEY = 'tm_graveyard_filter_mob_type_v1';
   const ALL_TYPES_CACHE_PREFIX = 'tm_graveyard_all_dead_index_v1:';
   const ALL_TYPES_TTL_MS = 5 * 60 * 1000;
+  const DEAD_PAGE_SCAN_LIMIT = 250;
+  const DEAD_PAGE_EMPTY_STOP = 2;
   // Global monster card size (shared across Wave pages + D1 board).
   const UI_CARD_SIZE_KEY = 'tm_monster_card_size_v1';
   // Back-compat for older versions (Graveyard-only setting).
   const UI_CARD_SIZE_LEGACY_KEY = 'tm_graveyard_card_size_v1';
-  const UI_AUTO_LOAD_ALL_DEAD_KEY = 'tm_graveyard_auto_load_all_dead_v1';
   const STYLE_ID = 'tmGraveyardMultiLootStyles';
   const MODAL_ID = 'tmGraveyardLootModal';
 
@@ -2981,16 +2982,14 @@
 
   function getDeadLootMaxPages(doc) {
     const fromText = getDeadLootMaxPagesFromText(doc);
-    if (fromText > 0) return fromText;
-
     const fromLinks = getDeadLootMaxPagesFromLinks(doc);
-    if (fromLinks > 0) return fromLinks;
 
     // Fallback: estimate from "unclaimed kills" / per-page count.
     const totalDead = getUnclaimedKillsCount(doc);
     const perPage = Math.max(0, (doc || document).querySelectorAll(SELECTOR_ANY_DEAD_CARD).length);
-    if (totalDead > 0 && perPage > 0 && totalDead > perPage) return Math.ceil(totalDead / perPage);
-    return 0;
+    const estimated = totalDead > 0 && perPage > 0 && totalDead > perPage ? Math.ceil(totalDead / perPage) : 0;
+
+    return Math.max(0, fromText || 0, fromLinks || 0, estimated || 0);
   }
 
   async function runWithConcurrency(items, concurrency, worker) {
@@ -3034,6 +3033,50 @@
     return { count: cards.length, types };
   }
 
+  async function fetchDeadPageCardIds(baseUrl, pageNumber) {
+    const u = new URL(baseUrl);
+    if (pageNumber && pageNumber > 1) u.searchParams.set('dead_page', String(pageNumber));
+    else u.searchParams.delete('dead_page');
+
+    const res = await fetch(u.toString(), { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    if (!res.ok) return { count: 0, ids: [] };
+    const html = await res.text().catch(() => '');
+    if (!html) return { count: 0, ids: [] };
+
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const ids = Array.from(doc.querySelectorAll(SELECTOR_ANY_DEAD_CARD))
+      .map((card) => parseInt(card.getAttribute('data-monster-id') || '0', 10))
+      .filter(Boolean);
+    return { count: ids.length, ids };
+  }
+
+  async function discoverDeadLootMaxPages(baseUrl, detectedMax, seedIds, onProbe) {
+    let maxPages = Math.max(1, Number(detectedMax || 1) || 1);
+    const seenIds = new Set(Array.from(seedIds || []).filter(Boolean));
+    let emptyHits = 0;
+
+    for (let p = maxPages + 1; p <= DEAD_PAGE_SCAN_LIMIT; p++) {
+      if (typeof onProbe === 'function') onProbe(p, maxPages);
+      const result = await fetchDeadPageCardIds(baseUrl, p).catch(() => ({ count: 0, ids: [] }));
+      const ids = Array.from(result?.ids || []).filter(Boolean);
+
+      if (!ids.length) {
+        emptyHits += 1;
+        if (emptyHits >= DEAD_PAGE_EMPTY_STOP) break;
+        continue;
+      }
+
+      const newIds = ids.filter((id) => !seenIds.has(id));
+      if (!newIds.length) break;
+
+      newIds.forEach((id) => seenIds.add(id));
+      maxPages = p;
+      emptyHits = 0;
+    }
+
+    return maxPages;
+  }
+
   function kickOffAllDeadTypesPrefetch() {
     const baseUrl = getBaseWaveUrl();
     if (allDeadTypesFetch && lastAllDeadTypesBaseUrl === baseUrl) return;
@@ -3057,9 +3100,18 @@
           }
         }
 
+        const seedIds = new Set(
+          Array.from(document.querySelectorAll(SELECTOR_ANY_DEAD_CARD))
+            .map((c) => parseInt(c.getAttribute('data-monster-id') || '0', 10))
+            .filter(Boolean)
+        );
+
         let maxPages = getDeadLootMaxPages(document);
         if (!Number.isFinite(maxPages) || maxPages < 2) maxPages = 10;
-        maxPages = Math.max(2, Math.min(20, maxPages));
+        maxPages = Math.max(2, Math.min(DEAD_PAGE_SCAN_LIMIT, maxPages));
+        maxPages = await discoverDeadLootMaxPages(baseUrl, maxPages, seedIds, (p) => {
+          setStatus(`Checking for hidden dead pages... (${p})`);
+        });
 
         const pages = [];
         for (let p = 2; p <= maxPages; p++) pages.push(p);
@@ -3127,19 +3179,7 @@
   }
 
   function isAutoLoadAllDeadEnabled() {
-    try {
-      return window.sessionStorage.getItem(UI_AUTO_LOAD_ALL_DEAD_KEY) === '1';
-    } catch {
-      return false;
-    }
-  }
-
-  function setAutoLoadAllDeadEnabled(on) {
-    try {
-      window.sessionStorage.setItem(UI_AUTO_LOAD_ALL_DEAD_KEY, on ? '1' : '0');
-    } catch {
-      // ignore
-    }
+    return true;
   }
 
   function hasMergedAllDeadPages() {
@@ -3397,7 +3437,16 @@
       }
     }
 
-    maxPages = Math.max(1, Math.min(20, Number(maxPages || 1) || 1));
+    const seedIds = new Set(
+      Array.from(document.querySelectorAll(SELECTOR_ANY_DEAD_CARD))
+        .map((c) => parseInt(c.getAttribute('data-monster-id') || '0', 10))
+        .filter(Boolean)
+    );
+
+    maxPages = Math.max(1, Math.min(DEAD_PAGE_SCAN_LIMIT, Number(maxPages || 1) || 1));
+    maxPages = await discoverDeadLootMaxPages(baseUrl, maxPages, seedIds, (p) => {
+      setStatus(`Checking for hidden dead pages... (${p})`);
+    });
     if (maxPages <= 1) {
       setStatus('Only 1 dead page here.');
       return null;
@@ -4112,26 +4161,6 @@
     btnGoToType.textContent = 'Go to type page';
     btnGoToType.disabled = true;
 
-    const btnLoadAllDead = document.createElement('button');
-    btnLoadAllDead.type = 'button';
-    btnLoadAllDead.className = 'btn';
-    btnLoadAllDead.textContent = 'Load all dead pages';
-
-    const autoLoadWrap = document.createElement('label');
-    autoLoadWrap.style.cssText = 'display:inline-flex;gap:8px;align-items:center;color:#c7cbdf;font-size:12px;';
-    autoLoadWrap.title = 'Automatically loads all dead pages into the current page (can be heavy).';
-
-    const autoLoadCb = document.createElement('input');
-    autoLoadCb.type = 'checkbox';
-    autoLoadCb.style.cssText = 'width:16px;height:16px;';
-    autoLoadCb.checked = isAutoLoadAllDeadEnabled();
-
-    const autoLoadTxt = document.createElement('span');
-    autoLoadTxt.textContent = 'Auto-load all dead pages';
-
-    autoLoadWrap.appendChild(autoLoadCb);
-    autoLoadWrap.appendChild(autoLoadTxt);
-
     const qtyWrap = document.createElement('label');
     qtyWrap.style.cssText = 'display:inline-flex;gap:8px;align-items:center;color:#c7cbdf;font-size:12px;';
     qtyWrap.title = 'Type a number to auto-check that many visible dead monsters (based on the Show filter).';
@@ -4178,8 +4207,6 @@
     wrap.appendChild(typeWrap);
     wrap.appendChild(btnReloadTypes);
     wrap.appendChild(btnGoToType);
-    wrap.appendChild(btnLoadAllDead);
-    wrap.appendChild(autoLoadWrap);
     wrap.appendChild(qtyWrap);
     wrap.appendChild(btnSelVisible);
     wrap.appendChild(btnClear);
@@ -4288,21 +4315,6 @@
       lastAllDeadTypesBaseUrl = '';
       kickOffAllDeadTypesPrefetch();
       ensureTypeFilterOptions();
-    });
-
-    btnLoadAllDead.addEventListener('click', async () => {
-      btnLoadAllDead.disabled = true;
-      try {
-        await mergeAllDeadPagesIntoOne();
-      } finally {
-        btnLoadAllDead.disabled = false;
-      }
-    });
-
-    autoLoadCb.addEventListener('change', () => {
-      setAutoLoadAllDeadEnabled(!!autoLoadCb.checked);
-      setStatus(autoLoadCb.checked ? 'Auto-load enabled.' : 'Auto-load disabled.');
-      maybeAutoLoadAllDeadPages();
     });
 
     function updateGoToTypeButton() {
@@ -4536,10 +4548,34 @@
   if (!isOlympusPage) return;
 
   const SHOP_NPCS = [
-    { npc: 'damon', label: 'Damon', note: 'Potions' },
-    { npc: 'melanippe', label: 'Melanippe', note: 'Stable' },
-    { npc: 'brontes', label: 'Brontes', note: 'Forge' },
-    { npc: 'melinoe', label: 'Melinoe', note: 'Eggs' }
+    {
+      npc: 'damon',
+      label: 'Damon',
+      title: 'Apothecary of Epidaurus',
+      note: 'Potions',
+      selectors: ['.damon-shop-modal[aria-labelledby="damonShopTitle"]', '#damonShopTitle']
+    },
+    {
+      npc: 'melanippe',
+      label: 'Melanippe',
+      title: 'Keeper of Areion Stables',
+      note: 'Stable',
+      selectors: ['.damon-shop-modal[aria-labelledby="melanippeStableTitle"]', '#melanippeStableTitle']
+    },
+    {
+      npc: 'brontes',
+      label: 'Brontes',
+      title: 'Forge Beyond Legendary',
+      note: 'Forge',
+      selectors: ['.brontes-forge-modal', '#brontesForgeTitle']
+    },
+    {
+      npc: 'melinoe',
+      label: 'Melinoe',
+      title: 'Olympus Eggs',
+      note: 'Eggs',
+      selectors: ['.melinoe-shop-modal', '#melinoeShopTitle']
+    }
   ];
 
   function escapeHtml(value) {
@@ -4578,6 +4614,29 @@
         font-size:15px;
         color:#ffd369;
       }
+      .tm-olympus-shop-jumps{
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+        margin:0 0 12px;
+        padding-bottom:10px;
+        border-bottom:1px solid rgba(255,255,255,.1);
+      }
+      .tm-olympus-shop-jumps a{
+        text-decoration:none;
+        border:1px solid rgba(255,255,255,.14);
+        border-radius:999px;
+        background:rgba(255,255,255,.07);
+        color:#e8ebff;
+        padding:7px 11px;
+        font-size:12px;
+        font-weight:900;
+      }
+      .tm-olympus-shop-jumps a:hover{
+        border-color:rgba(255,211,105,.48);
+        background:rgba(255,211,105,.13);
+        color:#fff;
+      }
       .tm-olympus-shop-actions{
         display:flex;
         gap:9px;
@@ -4602,6 +4661,44 @@
         cursor:not-allowed;
         opacity:.45;
       }
+      .tm-olympus-shop-actions button.active{
+        border-color:rgba(255,211,105,.72);
+        background:rgba(255,211,105,.16);
+      }
+      .tm-olympus-shop-status{
+        margin-top:10px;
+        color:#aeb5d2;
+        font-size:12px;
+      }
+      .tm-olympus-shop-host{
+        margin-top:12px;
+      }
+      .tm-olympus-shop-empty{
+        border:1px dashed rgba(255,255,255,.14);
+        border-radius:10px;
+        color:#aeb5d2;
+        padding:14px;
+        text-align:center;
+      }
+      .tm-olympus-shop-host .modal,
+      .tm-olympus-shop-host .damon-shop-modal,
+      .tm-olympus-shop-host .brontes-forge-modal{
+        position:static !important;
+        inset:auto !important;
+        transform:none !important;
+        width:100% !important;
+        max-width:none !important;
+        max-height:none !important;
+        box-sizing:border-box !important;
+        margin:0 !important;
+        display:block !important;
+        opacity:1 !important;
+        visibility:visible !important;
+        z-index:auto !important;
+      }
+      .tm-olympus-shop-host .modal-actions{
+        justify-content:flex-end;
+      }
       @media(max-width:620px){
         .tm-olympus-shop-panel{
           width:calc(100vw - 16px);
@@ -4610,6 +4707,10 @@
         }
         .tm-olympus-shop-actions button{
           flex:1 1 135px;
+        }
+        .tm-olympus-shop-jumps a{
+          flex:1 1 118px;
+          text-align:center;
         }
       }
       .waves-nav .tm-olympus-map-chip{
@@ -4627,6 +4728,19 @@
           text-align:center;
         }
       }
+      body.tm-olympus-shops-mode .tm-olympus-map-hidden{
+        display:none !important;
+      }
+      body.tm-olympus-shops-mode #npcDialogue,
+      body.tm-olympus-shops-mode .npc-dialogue{
+        display:none !important;
+        opacity:0 !important;
+        visibility:hidden !important;
+        pointer-events:none !important;
+      }
+      body.tm-olympus-shops-mode .waves-nav .tm-olympus-map-chip.active{
+        opacity:.72;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -4640,24 +4754,51 @@
     return chip;
   }
 
-  function replaceInvadeChip() {
+  function isInvadeLink(link) {
+    const text = String(link?.textContent || '').trim();
+    const href = String(link?.getAttribute?.('href') || '');
+    return /invade\s+olympus/i.test(text) || /(^|\/)olympus\.php(?:$|[?#])/i.test(href);
+  }
+
+  function isWaveOneLink(link) {
+    const text = String(link?.textContent || '').trim();
+    const href = String(link?.getAttribute?.('href') || '');
+    return /wave\s*1/i.test(text) || /(?:[?&])gate=5(?:&amp;|&)?wave=9\b/i.test(href) || /(?:[?&])wave=9\b/i.test(href);
+  }
+
+  function normalizeOlympusNav() {
     const nav = document.querySelector('.waves-nav');
-    if (!nav || nav.dataset.tmOlympusShortcuts === '1') return;
+    if (!nav) return;
 
-    const invade = Array.from(nav.querySelectorAll('a.wave-chip')).find((link) => {
-      const text = String(link.textContent || '').trim();
-      const href = String(link.getAttribute('href') || '');
-      return /invade\s+olympus/i.test(text) || /(^|\/)olympus\.php(?:$|[?#])/i.test(href);
+    const existingLinks = Array.from(nav.querySelectorAll('a.wave-chip'));
+    const waveOne = existingLinks.find((link) => !link.dataset.tmOlympusShortcut && isWaveOneLink(link)) ||
+      makeChip('Wave 1', 'active_wave.php?gate=5&wave=9', waveId === '9');
+
+    waveOne.classList.add('wave-chip');
+    waveOne.classList.toggle('active', waveId === '9');
+    if (!waveOne.getAttribute('href') || /^\?/.test(waveOne.getAttribute('href') || '')) {
+      waveOne.href = 'active_wave.php?gate=5&wave=9';
+    }
+
+    existingLinks.forEach((link) => {
+      if (link === waveOne) return;
+      if (link.dataset.tmOlympusShortcut === '1' || isInvadeLink(link) || isWaveOneLink(link)) link.remove();
     });
-    if (!invade) return;
 
-    const shops = makeChip('Shops', 'merchant.php', /\/merchant\.php$/i.test(path));
+    const shops = makeChip('Shops', 'olympus.php#shops', isOlympusMap && /^#(?:tm-)?shops$/i.test(window.location.hash || ''));
     const hermes = makeChip('Hermes', 'active_wave.php?gate=5&wave=10', waveId === '10');
     const artemis = makeChip('Artemis', 'active_wave.php?gate=5&wave=11', waveId === '11');
-    const map = makeChip('Invade Olympus', 'olympus.php', isOlympusMap, 'tm-olympus-map-chip');
+    const map = makeChip('Invade Olympus', 'olympus.php', isOlympusMap && !isShopsHash(), 'tm-olympus-map-chip');
 
-    invade.replaceWith(shops, hermes, artemis, map);
+    nav.innerHTML = '';
+    nav.append(waveOne, shops, hermes, artemis, map);
     nav.dataset.tmOlympusShortcuts = '1';
+  }
+
+  function replaceInvadeChip() {
+    const nav = document.querySelector('.waves-nav');
+    if (!nav) return;
+    normalizeOlympusNav();
   }
 
   function findShopPanelAnchor() {
@@ -4669,40 +4810,207 @@
     );
   }
 
+  function isShopsHash() {
+    return /^#(?:tm-)?shops$/i.test(window.location.hash || '');
+  }
+
+  function restoreOlympusMap() {
+    document.body.classList.remove('tm-olympus-shops-mode');
+    document.body.classList.remove('tm-olympus-shop-autoskip');
+    document.querySelectorAll('.tm-olympus-map-hidden').forEach((node) => {
+      node.classList.remove('tm-olympus-map-hidden');
+      if (node instanceof HTMLElement && node.dataset.tmOlympusOldDisplay !== undefined) {
+        node.style.display = node.dataset.tmOlympusOldDisplay;
+        delete node.dataset.tmOlympusOldDisplay;
+      }
+    });
+  }
+
+  function hideOlympusMapForShops(panel) {
+    if (!isOlympusMap || !isShopsHash() || !(panel instanceof HTMLElement)) {
+      restoreOlympusMap();
+      return;
+    }
+
+    document.body.classList.add('tm-olympus-shops-mode');
+    const shell = panel.closest('.olympus-shell') || document.querySelector('.olympus-shell');
+    if (!(shell instanceof HTMLElement)) return;
+
+    Array.from(shell.children).forEach((child) => {
+      if (child === panel || child.contains(panel)) return;
+      if (!(child instanceof HTMLElement)) return;
+      if (child.classList.contains('waves-nav')) return;
+      if (child.dataset.tmOlympusOldDisplay === undefined) child.dataset.tmOlympusOldDisplay = child.style.display || '';
+      child.classList.add('tm-olympus-map-hidden');
+    });
+  }
+
+  function getShopByNpc(npc) {
+    return SHOP_NPCS.find((shop) => shop.npc === npc) || null;
+  }
+
+  function findShopModal(shop) {
+    if (!shop) return null;
+    for (const selector of shop.selectors || []) {
+      const found = document.querySelector(selector);
+      const modal = found?.closest?.('.modal') || found;
+      if (modal instanceof HTMLElement) return modal;
+    }
+    return null;
+  }
+
+  function findDismissibleParent(modal) {
+    let node = modal?.parentElement || null;
+    while (node && node !== document.body) {
+      const cls = String(node.className || '');
+      if (/modal|overlay|backdrop/i.test(cls) && node.children.length <= 2) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function setShopStatus(text, tone) {
+    const status = document.getElementById('tmOlympusShopStatus');
+    if (!status) return;
+    status.textContent = text || '';
+    status.style.color = tone === 'err' ? '#ff9d9d' : '#aeb5d2';
+  }
+
+  function setActiveShopButton(npc) {
+    document.querySelectorAll('#tmOlympusShopPanel button[data-npc-target]').forEach((button) => {
+      button.classList.toggle('active', button.getAttribute('data-npc-target') === npc);
+    });
+  }
+
+  function placeShopModal(shop, modal) {
+    const host = document.getElementById('tmOlympusShopHost');
+    if (!host || !(modal instanceof HTMLElement)) return false;
+    const wrapper = findDismissibleParent(modal);
+    if (wrapper && wrapper !== host && wrapper.parentElement) wrapper.parentElement.removeChild(wrapper);
+    host.innerHTML = '';
+    modal.classList.add('tm-olympus-inline-shop');
+    modal.dataset.tmOlympusInlineShop = shop.npc;
+    host.appendChild(modal);
+    setActiveShopButton(shop.npc);
+    setShopStatus(`${shop.label} shop loaded in the Shops tab.`);
+    try { host.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+    return true;
+  }
+
+  function skipNpcDialogueForShop() {
+    if (!isShopsHash()) return false;
+    const dialogue = document.getElementById('npcDialogue');
+    if (dialogue instanceof HTMLElement && dialogue.getAttribute('aria-hidden') === 'true' && !dialogue.classList.contains('isOpen')) return false;
+
+    const skip = document.getElementById('npcDialogueSkip');
+    if (skip instanceof HTMLElement && !skip.disabled) {
+      skip.click();
+      return true;
+    }
+
+    const next = document.getElementById('npcDialogueNext');
+    if (next instanceof HTMLElement && !next.disabled) {
+      next.click();
+      return true;
+    }
+
+    const action = Array.from(document.querySelectorAll('.npc-dialogue button, .npc-dialogue .btn')).find((button) => {
+      if (!(button instanceof HTMLElement) || button.disabled) return false;
+      return /skip|shop|open|next|continue/i.test(String(button.textContent || ''));
+    });
+    if (action instanceof HTMLElement) {
+      action.click();
+      return true;
+    }
+
+    return false;
+  }
+
+  function loadNpcShop(npc) {
+    const shop = getShopByNpc(npc);
+    const marker = npc ? document.querySelector(`.npc-marker[data-npc="${cssEscape(npc)}"]`) : null;
+    if (!shop) return;
+    if (!(marker instanceof HTMLElement)) {
+      setShopStatus(`${shop.label} is not available on this Olympus map yet.`, 'err');
+      return;
+    }
+
+    setActiveShopButton(shop.npc);
+    setShopStatus(`Opening ${shop.label}'s shop...`);
+    document.body.classList.add('tm-olympus-shop-autoskip');
+    marker.click();
+    skipNpcDialogueForShop();
+
+    let tries = 0;
+    const check = () => {
+      tries += 1;
+      const modal = findShopModal(shop);
+      if (modal && placeShopModal(shop, modal)) return;
+      skipNpcDialogueForShop();
+      if (tries < 20) {
+        window.setTimeout(check, 100);
+        return;
+      }
+      setShopStatus(`I could not find ${shop.label}'s shop modal after opening the NPC.`, 'err');
+    };
+    window.setTimeout(check, 60);
+  }
+
   function ensureShopPanel() {
-    if (!isOlympusMap || !/^#(?:tm-)?shops$/i.test(window.location.hash || '') || document.getElementById('tmOlympusShopPanel')) return;
+    if (!isOlympusMap || !isShopsHash()) {
+      const oldPanel = document.getElementById('tmOlympusShopPanel');
+      if (oldPanel) oldPanel.remove();
+      restoreOlympusMap();
+      return;
+    }
+
+    const existingPanel = document.getElementById('tmOlympusShopPanel');
+    if (existingPanel) {
+      hideOlympusMapForShops(existingPanel);
+      return;
+    }
 
     const panel = document.createElement('section');
     panel.id = 'tmOlympusShopPanel';
     panel.className = 'tm-olympus-shop-panel';
     panel.innerHTML = `
       <h3>Olympus Shops</h3>
+      <div class="tm-olympus-shop-jumps" aria-label="Olympus quick navigation">
+        <a href="active_wave.php?gate=5&wave=9">Wave 1</a>
+        <a href="active_wave.php?gate=5&wave=10">Hermes</a>
+        <a href="active_wave.php?gate=5&wave=11">Artemis</a>
+        <a href="olympus.php">Invade Olympus</a>
+      </div>
       <div class="tm-olympus-shop-actions">
         ${SHOP_NPCS.map((shop) => {
           const marker = document.querySelector(`.npc-marker[data-npc="${cssEscape(shop.npc)}"]`);
           return `
             <button type="button" data-npc-target="${escapeHtml(shop.npc)}"${marker ? '' : ' disabled'}>
               ${escapeHtml(shop.label)}
-              <small>${escapeHtml(marker ? shop.note : 'Not available')}</small>
+              <small>${escapeHtml(marker ? `${shop.note} - ${shop.title}` : 'Not available')}</small>
             </button>
           `;
         }).join('')}
+      </div>
+      <div class="tm-olympus-shop-status" id="tmOlympusShopStatus">Pick an Olympus NPC shop to open it here.</div>
+      <div class="tm-olympus-shop-host" id="tmOlympusShopHost">
+        <div class="tm-olympus-shop-empty">Shop contents will load here.</div>
       </div>
     `;
 
     panel.addEventListener('click', (event) => {
       const btn = event.target instanceof Element ? event.target.closest('button[data-npc-target]') : null;
       if (!btn || btn.disabled) return;
-      const npc = btn.getAttribute('data-npc-target');
-      const marker = npc ? document.querySelector(`.npc-marker[data-npc="${cssEscape(npc)}"]`) : null;
-      if (marker instanceof HTMLElement) marker.click();
+      loadNpcShop(btn.getAttribute('data-npc-target'));
     });
 
     const anchor = findShopPanelAnchor();
     if (anchor === document.body) document.body.prepend(panel);
     else anchor.prepend(panel);
 
-    if (/^#(?:tm-)?shops$/i.test(window.location.hash || '')) {
+    hideOlympusMapForShops(panel);
+
+    if (isShopsHash()) {
       window.setTimeout(() => {
         try { panel.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
         catch (e) { panel.scrollIntoView(); }
@@ -4719,6 +5027,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 
+  window.addEventListener('hashchange', init);
   window.setTimeout(init, 400);
 })();
 
